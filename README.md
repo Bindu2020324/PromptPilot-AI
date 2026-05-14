@@ -193,6 +193,14 @@ This gives users a simple free way to try the extension without running `npm ins
 
 ---
 
+## Troubleshooting
+
+If you encounter runtime, build, installation, or environment issues, start with the troubleshooting guide:
+
+- [Troubleshooting Guide](docs/troubleshooting.md)
+
+---
+
 ## Development
 
 ### Running in Development Mode
