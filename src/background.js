@@ -9,28 +9,35 @@ chrome.runtime.onInstalled.addListener(() => {
     id: 'pp-enhance',
     title: '✦ Enhance with PromptPilot AI',
     contexts: ['selection'],
-  })
-})
+  });
+});
 
 // ── Context menu ──────────────────────────────────────────────────────
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId !== 'pp-enhance' || !info.selectionText || !tab?.id) return
-  await ensureContent(tab.id)
-  chrome.tabs.sendMessage(tab.id, { type: 'PP_OPEN', text: info.selectionText })
-})
+  if (info.menuItemId !== 'pp-enhance' || !info.selectionText || !tab?.id)
+    return;
+  await ensureContent(tab.id);
+  chrome.tabs.sendMessage(tab.id, {
+    type: 'PP_OPEN',
+    text: info.selectionText,
+  });
+});
 
 // ── Keyboard shortcut ─────────────────────────────────────────────────
 
 chrome.commands.onCommand.addListener(async (cmd, tab) => {
-  if (cmd !== 'enhance-selection' || !tab?.id) return
-  await ensureContent(tab.id)
-  chrome.tabs.sendMessage(tab.id, { type: 'PP_SHORTCUT' })
-})
+  if (cmd !== 'enhance-selection' || !tab?.id) return;
+  await ensureContent(tab.id);
+  chrome.tabs.sendMessage(tab.id, { type: 'PP_SHORTCUT' });
+});
 
 async function ensureContent(tabId) {
   try {
-    await chrome.scripting.executeScript({ target: { tabId }, files: ['src/content.js'] })
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['src/content.js'],
+    });
   } catch (_) {}
 }
 
@@ -39,34 +46,47 @@ async function ensureContent(tabId) {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'PP_API') {
     callAPI(msg)
-      .then(r  => sendResponse({ ok: true,  data: r }))
-      .catch(e => sendResponse({ ok: false, error: e.message }))
-    return true
+      .then((r) => sendResponse({ ok: true, data: r }))
+      .catch((e) => sendResponse({ ok: false, error: e.message }));
+    return true;
   }
-})
+});
 
 // ── Domain system prompts ─────────────────────────────────────────────
 
 const DOMAIN_CONTEXT = {
-  frontend:  'You are a senior frontend engineer. Inject: React/TypeScript best practices, responsive design, accessibility (WCAG 2.1), reusable components, Tailwind CSS, performance optimization, loading/error states, SEO.',
-  backend:   'You are a senior backend engineer. Inject: REST/GraphQL API design, JWT auth, database schema, scalability, security hardening, error handling, rate limiting, logging, test coverage.',
-  fullstack: 'You are a senior full-stack engineer. Inject: end-to-end architecture, API contracts, auth flows, DB design, deployment, CI/CD, monorepo patterns, performance at scale.',
-  uiux:      'You are a senior UI/UX designer. Inject: user flows, design system tokens, accessibility, color/typography hierarchy, interaction patterns, usability heuristics, responsive breakpoints.',
-  writing:   'You are a content strategist. Inject: target audience, tone, hook, structure (intro/body/CTA), SEO keywords, readability, emotional triggers, formatting.',
-  marketing: 'You are a growth marketer. Inject: target persona, funnel stage, value proposition, differentiation, messaging, channels, KPIs, conversion optimization.',
-  research:  'You are an academic researcher. Inject: research question, methodology, data sources, citation standards, objectivity, structured analysis, limitations, conclusions.',
-  resume:    'You are a career coach. Inject: ATS optimization, quantified achievements, action verbs, keywords, role-specific skills, format standards, LinkedIn alignment.',
-  interview: 'You are a FAANG interviewer. Inject: STAR format, technical depth, behavioral examples, role competencies, common follow-ups, evaluation rubric.',
-  business:  'You are a strategy consultant. Inject: problem framing, stakeholder map, market context, SWOT/OKR frameworks, success metrics, risk assessment, roadmap.',
-  youtube:   'You are a YouTube strategist. Inject: hook (0-30s), retention arc, chapter structure, pattern interrupts, CTA placement, SEO optimization, thumbnail concept.',
-  social:    'You are a social media expert. Inject: platform format, hook line, engagement triggers, hashtags, timing, visual suggestions, CTA, brand voice.',
-  education: 'You are a curriculum designer. Inject: learning objectives, Bloom\'s taxonomy, analogies, exercises, assessment criteria, progressive difficulty.',
-  dsa:       'You are a competitive programmer. Inject: constraints, time/space complexity, edge cases, brute→optimized approaches, data structure rationale, test cases.',
-  general:   'You are a world-class prompt engineer. Make prompts specific, structured, and highly actionable for modern LLMs.',
-}
+  frontend:
+    'You are a senior frontend engineer. Inject: React/TypeScript best practices, responsive design, accessibility (WCAG 2.1), reusable components, Tailwind CSS, performance optimization, loading/error states, SEO.',
+  backend:
+    'You are a senior backend engineer. Inject: REST/GraphQL API design, JWT auth, database schema, scalability, security hardening, error handling, rate limiting, logging, test coverage.',
+  fullstack:
+    'You are a senior full-stack engineer. Inject: end-to-end architecture, API contracts, auth flows, DB design, deployment, CI/CD, monorepo patterns, performance at scale.',
+  uiux: 'You are a senior UI/UX designer. Inject: user flows, design system tokens, accessibility, color/typography hierarchy, interaction patterns, usability heuristics, responsive breakpoints.',
+  writing:
+    'You are a content strategist. Inject: target audience, tone, hook, structure (intro/body/CTA), SEO keywords, readability, emotional triggers, formatting.',
+  marketing:
+    'You are a growth marketer. Inject: target persona, funnel stage, value proposition, differentiation, messaging, channels, KPIs, conversion optimization.',
+  research:
+    'You are an academic researcher. Inject: research question, methodology, data sources, citation standards, objectivity, structured analysis, limitations, conclusions.',
+  resume:
+    'You are a career coach. Inject: ATS optimization, quantified achievements, action verbs, keywords, role-specific skills, format standards, LinkedIn alignment.',
+  interview:
+    'You are a FAANG interviewer. Inject: STAR format, technical depth, behavioral examples, role competencies, common follow-ups, evaluation rubric.',
+  business:
+    'You are a strategy consultant. Inject: problem framing, stakeholder map, market context, SWOT/OKR frameworks, success metrics, risk assessment, roadmap.',
+  youtube:
+    'You are a YouTube strategist. Inject: hook (0-30s), retention arc, chapter structure, pattern interrupts, CTA placement, SEO optimization, thumbnail concept.',
+  social:
+    'You are a social media expert. Inject: platform format, hook line, engagement triggers, hashtags, timing, visual suggestions, CTA, brand voice.',
+  education:
+    "You are a curriculum designer. Inject: learning objectives, Bloom's taxonomy, analogies, exercises, assessment criteria, progressive difficulty.",
+  dsa: 'You are a competitive programmer. Inject: constraints, time/space complexity, edge cases, brute→optimized approaches, data structure rationale, test cases.',
+  general:
+    'You are a world-class prompt engineer. Make prompts specific, structured, and highly actionable for modern LLMs.',
+};
 
 function buildSystemPrompt(domain, mode) {
-  const ctx = DOMAIN_CONTEXT[domain] || DOMAIN_CONTEXT.general
+  const ctx = DOMAIN_CONTEXT[domain] || DOMAIN_CONTEXT.general;
   return `${ctx}
 
 TASK: Transform the user's weak/vague prompt into a structured expert-level prompt.
@@ -122,38 +142,43 @@ JSON schema:
   "missing_requirements": ["<string>","<string>","<string>"],
   "transformation_insight": "<1-2 sentences>",
   "ambiguities_resolved": ["<string>"]
-}`
+}`;
 }
 
 // ── Provider calls ────────────────────────────────────────────────────
 
 async function callAPI({ prompt, domain, mode, provider, apiKey }) {
-  const sys = buildSystemPrompt(domain, mode)
-  const userMsg = `Enhance this prompt: "${prompt}"`
-  let raw = ''
+  const sys = buildSystemPrompt(domain, mode);
+  const userMsg = `Enhance this prompt: "${prompt}"`;
+  let raw = '';
 
   if (provider === 'groq') {
-    raw = await callGroq(sys, userMsg, apiKey)
+    raw = await callGroq(sys, userMsg, apiKey);
   } else if (provider === 'openai') {
-    raw = await callOpenAI(sys, userMsg, apiKey)
+    raw = await callOpenAI(sys, userMsg, apiKey);
   } else {
-    raw = await callGemini(sys, userMsg, apiKey)
+    raw = await callGemini(sys, userMsg, apiKey);
   }
 
   const cleaned = raw
-    .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .trim();
 
   try {
-    return JSON.parse(cleaned)
+    return JSON.parse(cleaned);
   } catch (_) {
     return {
       enhanced_prompt: raw,
-      clarity_score: 30, specificity_score: 30, quality_score: 30,
+      clarity_score: 30,
+      specificity_score: 30,
+      quality_score: 30,
       domain_detected: domain || 'general',
       missing_requirements: [],
       transformation_insight: 'Enhancement complete.',
       ambiguities_resolved: [],
-    }
+    };
   }
 }
 
@@ -169,46 +194,66 @@ async function callGemini(sys, userMsg, apiKey) {
         generationConfig: { maxOutputTokens: 2000, temperature: 0.3 },
       }),
     }
-  )
-  await assertOK(res, 'Gemini')
-  const d = await res.json()
-  return d?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+  );
+  await assertOK(res, 'Gemini');
+  const d = await res.json();
+  return d?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
 async function callGroq(sys, userMsg, apiKey) {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey.trim()}` },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey.trim()}`,
+    },
     body: JSON.stringify({
       model: 'llama-3.3-70b-versatile',
-      max_tokens: 2000, temperature: 0.3,
-      messages: [{ role: 'system', content: sys }, { role: 'user', content: userMsg }],
+      max_tokens: 2000,
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: sys },
+        { role: 'user', content: userMsg },
+      ],
     }),
-  })
-  await assertOK(res, 'Groq')
-  const d = await res.json()
-  return d?.choices?.[0]?.message?.content || ''
+  });
+  await assertOK(res, 'Groq');
+  const d = await res.json();
+  return d?.choices?.[0]?.message?.content || '';
 }
 
 async function callOpenAI(sys, userMsg, apiKey) {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey.trim()}` },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey.trim()}`,
+    },
     body: JSON.stringify({
-      model: 'gpt-4o-mini', max_tokens: 2000, temperature: 0.3,
-      messages: [{ role: 'system', content: sys }, { role: 'user', content: userMsg }],
+      model: 'gpt-4o-mini',
+      max_tokens: 2000,
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: sys },
+        { role: 'user', content: userMsg },
+      ],
     }),
-  })
-  await assertOK(res, 'OpenAI')
-  const d = await res.json()
-  return d?.choices?.[0]?.message?.content || ''
+  });
+  await assertOK(res, 'OpenAI');
+  const d = await res.json();
+  return d?.choices?.[0]?.message?.content || '';
 }
 
 async function assertOK(res, provider) {
-  if (res.ok) return
-  let msg = `${provider} error ${res.status}`
-  try { const b = await res.json(); msg = b?.error?.message || msg } catch (_) {}
-  if (res.status === 401) throw new Error(`Invalid ${provider} API key — check Settings.`)
-  if (res.status === 429) throw new Error(`${provider} rate limit — wait a moment.`)
-  throw new Error(msg)
+  if (res.ok) return;
+  let msg = `${provider} error ${res.status}`;
+  try {
+    const b = await res.json();
+    msg = b?.error?.message || msg;
+  } catch (_) {}
+  if (res.status === 401)
+    throw new Error(`Invalid ${provider} API key — check Settings.`);
+  if (res.status === 429)
+    throw new Error(`${provider} rate limit — wait a moment.`);
+  throw new Error(msg);
 }

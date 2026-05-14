@@ -1,20 +1,30 @@
 {
   "name": "promptpilot-ai",
   "version": "1.0.0",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "vite build --watch",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint src/ --max-warnings 0",
+    "format": "prettier --write \"src/**/*.{js,jsx,css}\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,css}\""
   },
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.2.1",
     "@crxjs/vite-plugin": "^2.0.0-beta.23",
+    "@eslint/js": "^9.39.4",
+    "@vitejs/plugin-react": "^4.2.1",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.6.0",
+    "prettier": "^3.8.3",
     "vite": "^5.2.0"
   }
 }
-  
