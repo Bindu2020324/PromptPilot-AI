@@ -1,10 +1,13 @@
-# 🛫 PromptPilot AI  
+# 🛫 PromptPilot AI
+
 ### Navigate Better Prompts. Unlock Better AI.
 
 <p align="center">
   <img src="https://img.shields.io/badge/AI-Powered-blue?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Open%20Source-Project-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Prompt-Engineering-purple?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Chrome-Extension-orange?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Free%20API-Supported-brightgreen?style=for-the-badge" />
 </p>
 
 ---
@@ -15,16 +18,16 @@
 
 Instead of struggling with:
 
-- vague outputs ❌  
-- incomplete responses ❌  
-- poorly structured prompts ❌  
+- vague outputs ❌
+- incomplete responses ❌
+- poorly structured prompts ❌
 
 PromptPilot helps you generate:
 
-- context-aware prompts ✅  
-- optimized AI instructions ✅  
-- structured outputs ✅  
-- smarter conversations with AI ✅  
+- context-aware prompts ✅
+- optimized AI instructions ✅
+- structured outputs ✅
+- smarter conversations with AI ✅
 
 Think of it as your **AI Prompt Navigation System**.
 
@@ -35,9 +38,9 @@ Think of it as your **AI Prompt Navigation System**.
 AI is only as smart as the prompt you give it.
 
 PromptPilot bridges the gap between:  
-🧠 *human ideas*  
+🧠 _human ideas_  
 and  
-🤖 *high-quality AI responses*
+🤖 _high-quality AI responses_
 
 Whether you're writing code, generating content, researching, designing, or brainstorming — PromptPilot helps you communicate with AI more effectively.
 
@@ -49,11 +52,11 @@ Whether you're writing code, generating content, researching, designing, or brai
 
 Transform simple prompts into:
 
-- Detailed prompts  
-- Goal-oriented prompts  
-- Structured instructions  
-- Role-based prompts  
-- Output-controlled prompts  
+- Detailed prompts
+- Goal-oriented prompts
+- Structured instructions
+- Role-based prompts
+- Output-controlled prompts
 
 ---
 
@@ -61,11 +64,11 @@ Transform simple prompts into:
 
 Supports advanced prompting techniques:
 
-- Zero-shot prompting  
-- Few-shot prompting  
-- Chain-of-thought prompting  
-- Context injection  
-- Prompt refinement  
+- Zero-shot prompting
+- Few-shot prompting
+- Chain-of-thought prompting
+- Context injection
+- Prompt refinement
 
 ---
 
@@ -73,11 +76,11 @@ Supports advanced prompting techniques:
 
 Improve:
 
-- response quality  
-- creativity  
-- accuracy  
-- structure  
-- contextual understanding  
+- response quality
+- creativity
+- accuracy
+- structure
+- contextual understanding
 
 ---
 
@@ -85,11 +88,11 @@ Improve:
 
 Compatible with:
 
-- ChatGPT  
-- Gemini  
-- Claude  
-- Llama  
-- Open-source LLMs  
+- ChatGPT
+- Gemini
+- Claude
+- Llama
+- Open-source LLMs
 
 ---
 
@@ -99,7 +102,165 @@ Compatible with:
 ✔ Smooth UX  
 ✔ Mobile Responsive  
 ✔ Fast Performance  
-✔ Minimalistic Design  
+✔ Minimalistic Design
+
+---
+
+# 🔑 API Setup Guide
+
+PromptPilot AI supports **3 AI providers**. You need an API key from at least one provider to use the extension.
+
+> 💡 **Recommendation for beginners:** Start with **Groq** — it's completely free, no credit card required, and very fast.
+
+---
+
+## Provider Comparison
+
+| Provider             | Cost                      | Speed      | Best For             |
+| -------------------- | ------------------------- | ---------- | -------------------- |
+| 🟢 **Groq**          | **Free forever**          | ⚡ Fastest | Beginners, daily use |
+| 🔵 **Google Gemini** | **Free tier** (generous)  | ⚡ Fast    | General use          |
+| 🟠 **OpenAI**        | Paid ($5 credit to start) | Medium     | GPT-4o quality       |
+
+---
+
+## 🟢 Option 1: Groq API Key (Recommended — Free)
+
+Groq offers **free API access** to powerful open-source models like LLaMA 3.3 70B — no credit card needed.
+
+### Steps to get your Groq API key:
+
+**Step 1** — Go to [console.groq.com](https://console.groq.com)
+
+```
+https://console.groq.com
+```
+
+**Step 2** — Click **"Sign Up"** and create a free account
+
+- You can sign up with Google, GitHub, or email
+
+**Step 3** — After logging in, click **"API Keys"** in the left sidebar
+
+**Step 4** — Click **"Create API Key"**
+
+```
+Name your key: PromptPilot-Extension
+```
+
+**Step 5** — Copy the key — it starts with `gsk_`
+
+```
+Example: gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+**Step 6** — Open PromptPilot extension → click ⚙️ Settings → select **Groq** → paste your key → click **Save Settings**
+
+> ⚠️ **Important:** Copy the key immediately after creation. Groq only shows it once.
+
+---
+
+## 🔵 Option 2: Google Gemini API Key (Free Tier)
+
+Google AI Studio offers a **free tier** with generous daily limits — no credit card required for basic usage.
+
+### Steps to get your Gemini API key:
+
+**Step 1** — Go to [aistudio.google.com](https://aistudio.google.com)
+
+```
+https://aistudio.google.com
+```
+
+**Step 2** — Sign in with your **Google account**
+
+**Step 3** — Click **"Get API Key"** in the left sidebar
+
+**Step 4** — Click **"Create API key"**
+
+- Choose **"Create API key in new project"** (recommended)
+
+**Step 5** — Copy the generated key — it starts with `AIza`
+
+```
+Example: AIzaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+**Step 6** — Open PromptPilot extension → click ⚙️ Settings → select **Gemini** → paste your key → click **Save Settings**
+
+> 💡 **Free tier limits:** 15 requests/minute, 1 million tokens/day — more than enough for personal use.
+
+---
+
+## 🟠 Option 3: OpenAI API Key (Paid)
+
+OpenAI's GPT-4o Mini is available with a paid API key. New accounts get **$5 free credit** to start.
+
+### Steps to get your OpenAI API key:
+
+**Step 1** — Go to [platform.openai.com](https://platform.openai.com)
+
+```
+https://platform.openai.com
+```
+
+**Step 2** — Click **"Sign Up"** or **"Log In"**
+
+**Step 3** — After logging in, click your profile icon (top right) → **"API keys"**
+
+Or go directly to:
+
+```
+https://platform.openai.com/api-keys
+```
+
+**Step 4** — Click **"+ Create new secret key"**
+
+```
+Name: PromptPilot-Extension
+```
+
+**Step 5** — Copy the key — it starts with `sk-`
+
+```
+Example: sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+**Step 6** — Open PromptPilot extension → click ⚙️ Settings → select **OpenAI** → paste your key → click **Save Settings**
+
+> ⚠️ **Note:** You need to add billing information and have credits available. New accounts get $5 free credit.
+
+---
+
+## 🔒 How Your API Key is Stored
+
+Your API key is stored **securely in your browser only** using `chrome.storage.local`:
+
+- ✅ Never sent to any server other than your chosen AI provider
+- ✅ Never stored in the cloud
+- ✅ Never shared with PromptPilot or any third party
+- ✅ Only leaves your browser when you click "Forge Prompt"
+
+---
+
+## 🧪 Testing Your API Key
+
+Once you've added your key:
+
+1. Open the PromptPilot extension
+2. Type a simple prompt: `write a hello world in Python`
+3. Click **"✦ Forge Prompt"**
+4. If you see an enhanced prompt → your key is working! ✅
+5. If you see an error → double-check the key was copied correctly
+
+### Common Errors
+
+| Error                        | Cause             | Fix                              |
+| ---------------------------- | ----------------- | -------------------------------- |
+| `Invalid API key`            | Wrong key or typo | Re-copy from provider dashboard  |
+| `Rate limit`                 | Too many requests | Wait 1 minute and try again      |
+| `No API key set`             | Key not saved     | Go to Settings and save your key |
+| `Model provider unreachable` | Network issue     | Check internet connection        |
 
 ---
 
@@ -128,18 +289,21 @@ Compatible with:
 - Node.js (v14 or higher)
 - npm or yarn
 - Modern web browser (Chrome, Edge, Firefox)
+- API key from Groq, Gemini, or OpenAI (see [API Setup Guide](#-api-setup-guide) above)
 
 ---
 
 ## Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/Bindu2020324/PromptPilot-AI.git
    cd PromptPilot-AI
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
@@ -221,11 +385,20 @@ npm run build
 
 This creates an optimized build in the `dist` folder ready for distribution.
 
+### Code Quality
+
+```bash
+npm run lint        # Check for ESLint errors
+npm run format      # Auto-format code with Prettier
+npm run format:check # Check formatting without changing files
+```
+
 ---
 
 ## Configuration
 
 Edit `manifest.json` to customize:
+
 - Extension name and description
 - Permissions
 - Icons and branding
@@ -239,18 +412,21 @@ Edit `manifest.json` to customize:
 - **Vite** - Build tool
 - **JavaScript** - Core logic
 - **CSS** - Styling
+- **Groq / Gemini / OpenAI API** - AI providers
 
 ---
 
 ## File Descriptions
 
-| File | Purpose |
-|------|---------|
-| `manifest.json` | Defines extension metadata and permissions |
-| `background.js` | Handles background tasks and extension logic |
-| `content.js` | Injects functionality into web pages |
-| `App.jsx` | Main React component |
-| `vite.config.js` | Build configuration |
+| File               | Purpose                                      |
+| ------------------ | -------------------------------------------- |
+| `manifest.json`    | Defines extension metadata and permissions   |
+| `background.js`    | Handles background tasks and extension logic |
+| `content.js`       | Injects functionality into web pages         |
+| `App.jsx`          | Main React component                         |
+| `vite.config.js`   | Build configuration                          |
+| `eslint.config.js` | ESLint configuration                         |
+| `.prettierrc`      | Prettier formatting rules                    |
 
 ---
 
@@ -268,6 +444,7 @@ Edit `manifest.json` to customize:
 ---
 
 ## 🔥 Future Roadmap
+
 - 🎙 Voice-to-Prompt
 - 🧠 AI Memory System
 - 📊 Prompt Analytics
@@ -284,6 +461,7 @@ Edit `manifest.json` to customize:
 Contributions are welcome! Please feel free to submit issues and enhancement requests.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, branch naming, PR checklist, and testing instructions.
+
 ---
 
 ## License
