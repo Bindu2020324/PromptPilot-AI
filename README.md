@@ -5,6 +5,7 @@
   <img src="https://img.shields.io/badge/AI-Powered-blue?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Open%20Source-Project-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Prompt-Engineering-purple?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/coverage-80%25%2B-brightgreen?style=for-the-badge" />
 </p>
 
 ---
@@ -148,6 +149,32 @@ Compatible with:
    ```bash
    npm run build
    ```
+
+## Testing
+
+Run unit tests with Jest:
+```bash
+npm run test
+```
+
+Generate coverage reports locally:
+```bash
+npm run test:coverage
+```
+
+Run browser E2E tests with Playwright:
+```bash
+npm run test:e2e
+```
+
+The project uses Jest with React Testing Library for component tests and Playwright for end-to-end Chrome extension flows.
+
+### Writing new tests
+
+- Unit tests live in `src/__tests__/`.
+- E2E tests live in `tests/e2e/`.
+- Use React Testing Library for React components and Jest for utility functions.
+- Use Playwright for browser-level user journeys and extension interactions.
 
 ## Running from a shared ZIP
 

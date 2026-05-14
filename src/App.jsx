@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { handleCopy as copyToClipboard } from './utils/clipboard';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -650,14 +651,7 @@ export default function App() {
 
   function handleCopy(text) {
     if (!text) return;
-    navigator.clipboard?.writeText(text).catch(() => {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    });
+    copyToClipboard(text).catch(() => undefined);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -1523,3 +1517,5 @@ function ApiKeyWarning({ onSettings }) {
     </button>
   );
 }
+
+export { ScoreBar, Pill };
