@@ -10,15 +10,15 @@ describe('Pill', () => {
       </Pill>
     );
     const button = screen.getByRole('button', { name: 'Active' });
-    expect(button).toHaveStyle('background: rgba(124,58,237,0.22)');
-    expect(button).toHaveStyle('border-color: rgba(124,58,237,0.6)');
+    expect(button.style.background).toBe('rgba(124,58,237,0.22)');
+    expect(button.style.borderColor).toBe('rgba(124,58,237,0.6)');
 
     rerender(
       <Pill active={false} onClick={() => {}} title="Inactive Pill">
         Inactive
       </Pill>
     );
-    expect(button).toHaveStyle('background: rgba(255,255,255,0.04)');
+    expect(button.style.background).toBe('rgba(255,255,255,0.04)');
   });
 
   it('calls onClick when pressed', async () => {

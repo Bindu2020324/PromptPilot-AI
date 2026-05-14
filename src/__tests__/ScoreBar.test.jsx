@@ -12,9 +12,11 @@ describe('ScoreBar', () => {
     const { container, rerender } = render(
       <ScoreBar label="Test" value={150} color="#fff" bg="#4f46e5" />
     );
-    expect(container.querySelector('div > div > div')).toHaveStyle('width: 100%');
+    const bar = container.querySelector('div > div > div');
+    expect(bar).toBeTruthy();
+    expect(bar.style.width).toBe('100%');
 
     rerender(<ScoreBar label="Test" value={-10} color="#fff" bg="#4f46e5" />);
-    expect(container.querySelector('div > div > div')).toHaveStyle('width: 0%');
+    expect(bar.style.width).toBe('0%');
   });
 });

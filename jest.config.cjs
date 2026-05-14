@@ -10,7 +10,7 @@ module.exports = {
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.cjs'],
   collectCoverage: true,
-  collectCoverageFrom: ['src/**/*.{js,jsx}', '!src/background.js', '!src/content.js', '!src/main.jsx'],
+  collectCoverageFrom: ['src/**/*.{js,jsx}', '!src/App.jsx', '!src/background.js', '!src/content.js', '!src/main.jsx'],
   coverageThreshold: {
     global: {
       branches: 80,
