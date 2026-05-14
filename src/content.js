@@ -1,199 +1,251 @@
 // ═══════════════════════════════════════════════════════════════════════
 // PromptPilot AI — Content Script (Grammarly-style)
 // ═══════════════════════════════════════════════════════════════════════
-;(function () {
-  if (window.__pp_injected) return
-  window.__pp_injected = true
+(function () {
+  if (window.__pp_injected) return;
+  window.__pp_injected = true;
 
   // ── Config ───────────────────────────────────────────────────────────
   const SUPPORTED = [
-    'chat.openai.com','chatgpt.com','claude.ai','gemini.google.com',
-    'perplexity.ai','linkedin.com','mail.google.com','notion.so',
-    'github.com','cursor.sh','twitter.com','x.com',
-  ]
-  const host = location.hostname.replace('www.','')
-  const IS_SUPPORTED = SUPPORTED.some(s => host.includes(s))
+    'chat.openai.com',
+    'chatgpt.com',
+    'claude.ai',
+    'gemini.google.com',
+    'perplexity.ai',
+    'linkedin.com',
+    'mail.google.com',
+    'notion.so',
+    'github.com',
+    'cursor.sh',
+    'twitter.com',
+    'x.com',
+  ];
+  const host = location.hostname.replace('www.', '');
+  const IS_SUPPORTED = SUPPORTED.some((s) => host.includes(s));
 
   // ── State ────────────────────────────────────────────────────────────
-  let pillEl      = null   // floating ✦ button
-  let overlayEl   = null   // main modal
-  let toastRoot   = null   // toast container
-  let activeField = null   // currently focused input
-  let lastSel     = ''     // last selected text
-  let selRange    = null   // selection range for replacement
-  let debounceT   = null
+  let pillEl = null; // floating ✦ button
+  let overlayEl = null; // main modal
+  let toastRoot = null; // toast container
+  let activeField = null; // currently focused input
+  let lastSel = ''; // last selected text
+  let selRange = null; // selection range for replacement
+  let debounceT = null;
 
   // ── Shadow DOM host ───────────────────────────────────────────────────
   // Using Shadow DOM isolates our CSS completely from the host page
-  let shadowHost = null
-  let shadow     = null
+  let shadowHost = null;
+  let shadow = null;
 
   function initShadow() {
-    if (shadowHost) return
-    shadowHost = document.createElement('div')
-    shadowHost.id = '__pp_root'
-    Object.assign(shadowHost.style, { all:'initial', position:'fixed', zIndex:'2147483647', pointerEvents:'none' })
-    document.documentElement.appendChild(shadowHost)
-    shadow = shadowHost.attachShadow({ mode: 'open' })
+    if (shadowHost) return;
+    shadowHost = document.createElement('div');
+    shadowHost.id = '__pp_root';
+    Object.assign(shadowHost.style, {
+      all: 'initial',
+      position: 'fixed',
+      zIndex: '2147483647',
+      pointerEvents: 'none',
+    });
+    document.documentElement.appendChild(shadowHost);
+    shadow = shadowHost.attachShadow({ mode: 'open' });
 
     // Inject all styles into shadow root
-    const styleEl = document.createElement('style')
-    styleEl.textContent = SHADOW_CSS
-    shadow.appendChild(styleEl)
+    const styleEl = document.createElement('style');
+    styleEl.textContent = SHADOW_CSS;
+    shadow.appendChild(styleEl);
 
     // Container for pill + overlay
-    const root = document.createElement('div')
-    root.id = '__pp_container'
-    shadow.appendChild(root)
+    const root = document.createElement('div');
+    root.id = '__pp_container';
+    shadow.appendChild(root);
   }
 
   function shadowRoot() {
-    initShadow()
-    return shadow.getElementById('__pp_container')
+    initShadow();
+    return shadow.getElementById('__pp_container');
   }
 
   // ── Pill button ───────────────────────────────────────────────────────
 
   function showPill(x, y) {
     if (!pillEl) {
-      pillEl = document.createElement('button')
-      pillEl.id = '__pp_pill'
+      pillEl = document.createElement('button');
+      pillEl.id = '__pp_pill';
       pillEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white" stroke="white" stroke-width="0.5"/>
-      </svg>`
-      pillEl.title = 'Enhance with PromptPilot (Ctrl+Shift+E)'
-      pillEl.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation() })
-      pillEl.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); handlePillClick() })
-      shadowRoot().appendChild(pillEl)
+      </svg>`;
+      pillEl.title = 'Enhance with PromptPilot (Ctrl+Shift+E)';
+      pillEl.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      pillEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handlePillClick();
+      });
+      shadowRoot().appendChild(pillEl);
     }
 
     // Clamp to viewport
-    const VW = window.innerWidth, VH = window.innerHeight
-    const px = Math.min(Math.max(x, 12), VW - 52)
-    const py = Math.min(Math.max(y - 52, 8), VH - 52)
+    const VW = window.innerWidth,
+      VH = window.innerHeight;
+    const px = Math.min(Math.max(x, 12), VW - 52);
+    const py = Math.min(Math.max(y - 52, 8), VH - 52);
 
-    pillEl.style.left    = px + 'px'
-    pillEl.style.top     = py + 'px'
-    pillEl.style.opacity = '1'
-    pillEl.style.transform = 'scale(1)'
-    pillEl.style.pointerEvents = 'all'
-    shadowHost.style.pointerEvents = 'none'
-    pillEl.style.pointerEvents = 'all'
+    pillEl.style.left = px + 'px';
+    pillEl.style.top = py + 'px';
+    pillEl.style.opacity = '1';
+    pillEl.style.transform = 'scale(1)';
+    pillEl.style.pointerEvents = 'all';
+    shadowHost.style.pointerEvents = 'none';
+    pillEl.style.pointerEvents = 'all';
   }
 
   function hidePill() {
-    if (!pillEl) return
-    pillEl.style.opacity = '0'
-    pillEl.style.transform = 'scale(0.6)'
-    pillEl.style.pointerEvents = 'none'
+    if (!pillEl) return;
+    pillEl.style.opacity = '0';
+    pillEl.style.transform = 'scale(0.6)';
+    pillEl.style.pointerEvents = 'none';
   }
 
   function handlePillClick() {
-    hidePill()
-    if (lastSel) openOverlay(lastSel)
+    hidePill();
+    if (lastSel) openOverlay(lastSel);
   }
 
   // ── Text selection detection ──────────────────────────────────────────
 
-  document.addEventListener('mouseup', e => {
-    clearTimeout(debounceT)
+  document.addEventListener('mouseup', (e) => {
+    clearTimeout(debounceT);
     debounceT = setTimeout(() => {
-      const sel  = window.getSelection()
-      const text = sel?.toString().trim()
+      const sel = window.getSelection();
+      const text = sel?.toString().trim();
       if (text && text.length > 3) {
-        lastSel = text
+        lastSel = text;
         // Store range for later replacement
-        try { selRange = sel.getRangeAt(0).cloneRange() } catch (_) { selRange = null }
+        try {
+          selRange = sel.getRangeAt(0).cloneRange();
+        } catch (_) {
+          selRange = null;
+        }
         // Also track which element owns the selection
-        activeField = document.activeElement
-        const rect = sel.getRangeAt(0).getBoundingClientRect()
-        showPill(e.clientX, rect.top < 60 ? rect.bottom + window.scrollY : rect.top + window.scrollY - 8)
+        activeField = document.activeElement;
+        const rect = sel.getRangeAt(0).getBoundingClientRect();
+        showPill(
+          e.clientX,
+          rect.top < 60
+            ? rect.bottom + window.scrollY
+            : rect.top + window.scrollY - 8
+        );
       } else {
-        if (e.target !== pillEl) hidePill()
+        if (e.target !== pillEl) hidePill();
       }
-    }, 60)
-  })
+    }, 60);
+  });
 
   document.addEventListener('selectionchange', () => {
-    const text = window.getSelection()?.toString().trim()
-    if (!text) hidePill()
-  })
+    const text = window.getSelection()?.toString().trim();
+    if (!text) hidePill();
+  });
 
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { hidePill(); closeOverlay() }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      hidePill();
+      closeOverlay();
+    }
     // Ctrl/Cmd + Shift + E
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'E') {
-      e.preventDefault()
-      const sel = window.getSelection()?.toString().trim()
-      if (sel) { lastSel = sel; try { selRange = window.getSelection().getRangeAt(0).cloneRange() } catch(_){} openOverlay(sel) }
+      e.preventDefault();
+      const sel = window.getSelection()?.toString().trim();
+      if (sel) {
+        lastSel = sel;
+        try {
+          selRange = window.getSelection().getRangeAt(0).cloneRange();
+        } catch (_) {}
+        openOverlay(sel);
+      }
     }
-  })
+  });
 
   // ── Messages from background ──────────────────────────────────────────
 
-  chrome.runtime.onMessage.addListener(msg => {
-    if (msg.type === 'PP_OPEN'     && msg.text) { lastSel = msg.text; openOverlay(msg.text) }
-    if (msg.type === 'PP_SHORTCUT') {
-      const sel = window.getSelection()?.toString().trim()
-      if (sel) { lastSel = sel; openOverlay(sel) }
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.type === 'PP_OPEN' && msg.text) {
+      lastSel = msg.text;
+      openOverlay(msg.text);
     }
-  })
+    if (msg.type === 'PP_SHORTCUT') {
+      const sel = window.getSelection()?.toString().trim();
+      if (sel) {
+        lastSel = sel;
+        openOverlay(sel);
+      }
+    }
+  });
 
   // ═══════════════════════════════════════════════════════════════════════
   // OVERLAY
   // ═══════════════════════════════════════════════════════════════════════
 
   function openOverlay(text) {
-    closeOverlay()
-    initShadow()
+    closeOverlay();
+    initShadow();
 
-    const el = document.createElement('div')
-    el.id = '__pp_overlay'
-    el.innerHTML = buildOverlayHTML(text)
-    shadowRoot().appendChild(el)
-    overlayEl = el
-    shadowHost.style.pointerEvents = 'all'
+    const el = document.createElement('div');
+    el.id = '__pp_overlay';
+    el.innerHTML = buildOverlayHTML(text);
+    shadowRoot().appendChild(el);
+    overlayEl = el;
+    shadowHost.style.pointerEvents = 'all';
 
     // Position overlay smartly near selection
-    positionOverlay()
-    window.addEventListener('resize', positionOverlay)
+    positionOverlay();
+    window.addEventListener('resize', positionOverlay);
 
-    wireOverlay(text)
+    wireOverlay(text);
   }
 
   function positionOverlay() {
-    if (!overlayEl) return
-    const box = overlayEl.querySelector('#__pp_box')
-    if (!box) return
+    if (!overlayEl) return;
+    const box = overlayEl.querySelector('#__pp_box');
+    if (!box) return;
     // Try to position near selection, fallback to center
-    let top = '50%', left = '50%', transform = 'translate(-50%,-50%)'
+    let top = '50%',
+      left = '50%',
+      transform = 'translate(-50%,-50%)';
     if (selRange) {
-      const rect = selRange.getBoundingClientRect()
-      const VW = window.innerWidth, VH = window.innerHeight
-      const bh = 580, bw = 540
-      let t = rect.bottom + 12
-      let l = rect.left
-      if (t + bh > VH - 20) t = rect.top - bh - 12
-      if (t < 20) t = 20
-      if (l + bw > VW - 20) l = VW - bw - 20
-      if (l < 20) l = 20
-      top = t + 'px'; left = l + 'px'; transform = 'none'
+      const rect = selRange.getBoundingClientRect();
+      const VW = window.innerWidth,
+        VH = window.innerHeight;
+      const bh = 580,
+        bw = 540;
+      let t = rect.bottom + 12;
+      let l = rect.left;
+      if (t + bh > VH - 20) t = rect.top - bh - 12;
+      if (t < 20) t = 20;
+      if (l + bw > VW - 20) l = VW - bw - 20;
+      if (l < 20) l = 20;
+      top = t + 'px';
+      left = l + 'px';
+      transform = 'none';
     }
-    Object.assign(overlayEl.style, { top, left, transform })
+    Object.assign(overlayEl.style, { top, left, transform });
   }
 
   function closeOverlay() {
-    if (!overlayEl) return
-    overlayEl.remove()
-    overlayEl = null
-    if (shadowHost) shadowHost.style.pointerEvents = 'none'
-    window.removeEventListener('resize', positionOverlay)
+    if (!overlayEl) return;
+    overlayEl.remove();
+    overlayEl = null;
+    if (shadowHost) shadowHost.style.pointerEvents = 'none';
+    window.removeEventListener('resize', positionOverlay);
   }
 
   // ── Build overlay HTML ────────────────────────────────────────────────
 
   function buildOverlayHTML(text) {
-    const preview = esc(text.slice(0, 180)) + (text.length > 180 ? '…' : '')
+    const preview = esc(text.slice(0, 180)) + (text.length > 180 ? '…' : '');
     return `
 <div id="__pp_backdrop"></div>
 <div id="__pp_box" role="dialog" aria-label="PromptPilot AI">
@@ -352,230 +404,280 @@
 
   </div><!-- /body -->
 </div><!-- /box -->
-`
+`;
   }
 
   // ── Wire overlay interactions ─────────────────────────────────────────
 
   function wireOverlay(originalText) {
-    const $ = id => overlayEl.querySelector(`#${id}`)
+    const $ = (id) => overlayEl.querySelector(`#${id}`);
 
     // Close / backdrop
-    $('__pp_close').addEventListener('click', closeOverlay)
-    $('__pp_backdrop').addEventListener('click', closeOverlay)
+    $('__pp_close').addEventListener('click', closeOverlay);
+    $('__pp_backdrop').addEventListener('click', closeOverlay);
 
     // Tab switching
-    overlayEl.querySelectorAll('.pp-tab').forEach(tab => {
+    overlayEl.querySelectorAll('.pp-tab').forEach((tab) => {
       tab.addEventListener('click', () => {
-        overlayEl.querySelectorAll('.pp-tab').forEach(t => t.classList.remove('pp-tab-active'))
-        tab.classList.add('pp-tab-active')
-        const target = tab.dataset.tab
-        overlayEl.querySelectorAll('.pp-tab-panel').forEach(p => (p.style.display = 'none'))
-        $(`__pp_tab_${target}`).style.display = 'block'
-      })
-    })
+        overlayEl
+          .querySelectorAll('.pp-tab')
+          .forEach((t) => t.classList.remove('pp-tab-active'));
+        tab.classList.add('pp-tab-active');
+        const target = tab.dataset.tab;
+        overlayEl
+          .querySelectorAll('.pp-tab-panel')
+          .forEach((p) => (p.style.display = 'none'));
+        $(`__pp_tab_${target}`).style.display = 'block';
+      });
+    });
 
     // Check API key
     chrome.storage.local.get(['pp_key'], ({ pp_key }) => {
-      if (!pp_key) $('__pp_nokey').style.display = 'flex'
-    })
+      if (!pp_key) $('__pp_nokey').style.display = 'flex';
+    });
 
     // Enhance button
     $('__pp_forge_btn').addEventListener('click', () => {
-      chrome.storage.local.get(['pp_key', 'pp_provider'], async ({ pp_key, pp_provider }) => {
-        if (!pp_key) {
-          $('__pp_nokey').style.display = 'flex'
-          return
-        }
-        const domain = $('__pp_domain').value
-        const mode   = $('__pp_mode').value
-
-        $('__pp_error').style.display   = 'none'
-        $('__pp_loading').style.display = 'flex'
-        $('__pp_forge_btn').disabled    = true
-        $('__pp_btn_text').textContent  = '⟳ Enhancing…'
-
-        chrome.runtime.sendMessage(
-          { type: 'PP_API', prompt: originalText, domain, mode, provider: pp_provider || 'gemini', apiKey: pp_key },
-          res => {
-            $('__pp_loading').style.display = 'none'
-            $('__pp_forge_btn').disabled    = false
-            $('__pp_btn_text').textContent  = '✦ Re-enhance'
-
-            if (!res || !res.ok) {
-              const err = $('__pp_error')
-              err.textContent = '⚠ ' + (res?.error || 'Something went wrong.')
-              err.style.display = 'block'
-              return
-            }
-
-            renderResult(res.data, originalText, overlayEl)
+      chrome.storage.local.get(
+        ['pp_key', 'pp_provider'],
+        async ({ pp_key, pp_provider }) => {
+          if (!pp_key) {
+            $('__pp_nokey').style.display = 'flex';
+            return;
           }
-        )
-      })
-    })
+          const domain = $('__pp_domain').value;
+          const mode = $('__pp_mode').value;
+
+          $('__pp_error').style.display = 'none';
+          $('__pp_loading').style.display = 'flex';
+          $('__pp_forge_btn').disabled = true;
+          $('__pp_btn_text').textContent = '⟳ Enhancing…';
+
+          chrome.runtime.sendMessage(
+            {
+              type: 'PP_API',
+              prompt: originalText,
+              domain,
+              mode,
+              provider: pp_provider || 'gemini',
+              apiKey: pp_key,
+            },
+            (res) => {
+              $('__pp_loading').style.display = 'none';
+              $('__pp_forge_btn').disabled = false;
+              $('__pp_btn_text').textContent = '✦ Re-enhance';
+
+              if (!res || !res.ok) {
+                const err = $('__pp_error');
+                err.textContent =
+                  '⚠ ' + (res?.error || 'Something went wrong.');
+                err.style.display = 'block';
+                return;
+              }
+
+              renderResult(res.data, originalText, overlayEl);
+            }
+          );
+        }
+      );
+    });
   }
 
   // ── Render result ─────────────────────────────────────────────────────
 
   function renderResult(r, originalText, el) {
-    const $ = id => el.querySelector(`#${id}`)
+    const $ = (id) => el.querySelector(`#${id}`);
 
-    $('__pp_result').style.display = 'flex'
+    $('__pp_result').style.display = 'flex';
 
     // Scores
     const scores = [
-      { id: 'clarity',  val: r.clarity_score,     bar: 'clarity-fill',  num: '__pp_clarity_num' },
-      { id: 'spec',     val: r.specificity_score,  bar: 'spec-fill',     num: '__pp_spec_num' },
-      { id: 'qual',     val: r.quality_score,      bar: 'qual-fill',     num: '__pp_qual_num' },
-    ]
-    scores.forEach(s => {
-      const pct = Math.min(100, Math.max(0, s.val || 0))
-      el.querySelector(`#__pp_${s.id}_bar`).style.width = pct + '%'
-      $(s.num).textContent = pct
-    })
+      {
+        id: 'clarity',
+        val: r.clarity_score,
+        bar: 'clarity-fill',
+        num: '__pp_clarity_num',
+      },
+      {
+        id: 'spec',
+        val: r.specificity_score,
+        bar: 'spec-fill',
+        num: '__pp_spec_num',
+      },
+      {
+        id: 'qual',
+        val: r.quality_score,
+        bar: 'qual-fill',
+        num: '__pp_qual_num',
+      },
+    ];
+    scores.forEach((s) => {
+      const pct = Math.min(100, Math.max(0, s.val || 0));
+      el.querySelector(`#__pp_${s.id}_bar`).style.width = pct + '%';
+      $(s.num).textContent = pct;
+    });
 
     // Domain badge
-    $('__pp_domain_badge').textContent = r.domain_detected || 'General'
-    $('__pp_insight_text').textContent = r.transformation_insight || ''
+    $('__pp_domain_badge').textContent = r.domain_detected || 'General';
+    $('__pp_insight_text').textContent = r.transformation_insight || '';
 
     // Enhanced prompt — typing effect
-    const enhanced = r.enhanced_prompt || ''
-    const textEl   = $('__pp_enhanced_text')
-    textEl.textContent = ''
-    let i = 0
+    const enhanced = r.enhanced_prompt || '';
+    const textEl = $('__pp_enhanced_text');
+    textEl.textContent = '';
+    let i = 0;
     const tick = setInterval(() => {
-      i += 16
-      textEl.textContent = enhanced.slice(0, i)
-      if (i >= enhanced.length) { textEl.textContent = enhanced; clearInterval(tick) }
-    }, 16)
+      i += 16;
+      textEl.textContent = enhanced.slice(0, i);
+      if (i >= enhanced.length) {
+        textEl.textContent = enhanced;
+        clearInterval(tick);
+      }
+    }, 16);
 
     // Diff view
-    const diffEl = $('__pp_diff_body')
-    diffEl.innerHTML = buildDiff(originalText, enhanced)
+    const diffEl = $('__pp_diff_body');
+    diffEl.innerHTML = buildDiff(originalText, enhanced);
 
     // Tags — missing requirements
-    const tagsEl = $('__pp_tags_row')
-    tagsEl.innerHTML = '<div class="pp-tags-label">Requirements added:</div>' +
-      (r.missing_requirements || []).map(t => `<span class="pp-tag-yellow">+ ${esc(t)}</span>`).join('')
+    const tagsEl = $('__pp_tags_row');
+    tagsEl.innerHTML =
+      '<div class="pp-tags-label">Requirements added:</div>' +
+      (r.missing_requirements || [])
+        .map((t) => `<span class="pp-tag-yellow">+ ${esc(t)}</span>`)
+        .join('');
 
     // Ambiguities resolved
-    const ambigEl = $('__pp_ambig_row')
+    const ambigEl = $('__pp_ambig_row');
     if (r.ambiguities_resolved?.length) {
-      ambigEl.innerHTML = '<div class="pp-tags-label">Ambiguities resolved:</div>' +
-        r.ambiguities_resolved.map(t => `<span class="pp-tag-blue">✓ ${esc(t)}</span>`).join('')
+      ambigEl.innerHTML =
+        '<div class="pp-tags-label">Ambiguities resolved:</div>' +
+        r.ambiguities_resolved
+          .map((t) => `<span class="pp-tag-blue">✓ ${esc(t)}</span>`)
+          .join('');
     }
 
     // Copy enhanced button
     $('__pp_copy_enhanced').addEventListener('click', () => {
-      copyText(enhanced)
-      $('__pp_copy_enhanced').textContent = '✓ Copied!'
-      setTimeout(() => { $('__pp_copy_enhanced').textContent = 'Copy' }, 2000)
-    })
+      copyText(enhanced);
+      $('__pp_copy_enhanced').textContent = '✓ Copied!';
+      setTimeout(() => {
+        $('__pp_copy_enhanced').textContent = 'Copy';
+      }, 2000);
+    });
 
     // Copy button in actions
     $('__pp_copy_btn').addEventListener('click', () => {
-      copyText(enhanced)
-      showToast('✓ Copied to clipboard!', 'success')
-      closeOverlay()
-    })
+      copyText(enhanced);
+      showToast('✓ Copied to clipboard!', 'success');
+      closeOverlay();
+    });
 
     // Cancel button
-    $('__pp_cancel_btn').addEventListener('click', closeOverlay)
+    $('__pp_cancel_btn').addEventListener('click', closeOverlay);
 
     // Replace button — with confirmation
     $('__pp_replace_btn').addEventListener('click', () => {
-      replaceText(enhanced, originalText)
-    })
+      replaceText(enhanced, originalText);
+    });
   }
 
   // ── Text replacement ──────────────────────────────────────────────────
 
   function replaceText(enhanced, original) {
-    let replaced = false
+    let replaced = false;
 
     // Strategy 1: Replace in focused textarea
-    if (activeField && (activeField.tagName === 'TEXTAREA' || activeField.tagName === 'INPUT')) {
-      const el = activeField
-      const val = el.value
-      const idx = val.indexOf(original)
+    if (
+      activeField &&
+      (activeField.tagName === 'TEXTAREA' || activeField.tagName === 'INPUT')
+    ) {
+      const el = activeField;
+      const val = el.value;
+      const idx = val.indexOf(original);
       if (idx !== -1) {
-        const newVal = val.slice(0, idx) + enhanced + val.slice(idx + original.length)
-        el.value = newVal
-        el.dispatchEvent(new Event('input', { bubbles: true }))
-        el.dispatchEvent(new Event('change', { bubbles: true }))
-        replaced = true
+        const newVal =
+          val.slice(0, idx) + enhanced + val.slice(idx + original.length);
+        el.value = newVal;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        replaced = true;
       }
     }
 
     // Strategy 2: Replace via execCommand in contenteditable
     if (!replaced && selRange) {
       try {
-        const sel = window.getSelection()
-        sel.removeAllRanges()
-        sel.addRange(selRange)
-        document.execCommand('insertText', false, enhanced)
-        replaced = true
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(selRange);
+        document.execCommand('insertText', false, enhanced);
+        replaced = true;
       } catch (_) {}
     }
 
     // Strategy 3: Range replacement
     if (!replaced && selRange) {
       try {
-        selRange.deleteContents()
-        selRange.insertNode(document.createTextNode(enhanced))
-        replaced = true
+        selRange.deleteContents();
+        selRange.insertNode(document.createTextNode(enhanced));
+        replaced = true;
       } catch (_) {}
     }
 
     if (replaced) {
-      showToast('✓ Prompt replaced successfully!', 'success')
+      showToast('✓ Prompt replaced successfully!', 'success');
     } else {
       // Fallback: copy to clipboard
-      copyText(enhanced)
-      showToast('⚠ Could not replace — copied to clipboard instead.', 'warning')
+      copyText(enhanced);
+      showToast(
+        '⚠ Could not replace — copied to clipboard instead.',
+        'warning'
+      );
     }
 
-    closeOverlay()
+    closeOverlay();
   }
 
   // ── Diff builder ──────────────────────────────────────────────────────
   // Word-level diff: removed words shown in red, added words shown in green
 
   function buildDiff(original, enhanced) {
-    const oldWords = original.split(/(\s+)/)
-    const newWords = enhanced.split(/(\s+)/)
+    const oldWords = original.split(/(\s+)/);
+    const newWords = enhanced.split(/(\s+)/);
 
     // Simple LCS-based diff (good enough for prompts)
-    const m = oldWords.length, n = newWords.length
-    const dp = Array.from({length: m+1}, () => new Array(n+1).fill(0))
-    for (let i = m-1; i >= 0; i--)
-      for (let j = n-1; j >= 0; j--)
-        dp[i][j] = oldWords[i] === newWords[j]
-          ? dp[i+1][j+1] + 1
-          : Math.max(dp[i+1][j], dp[i][j+1])
+    const m = oldWords.length,
+      n = newWords.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = m - 1; i >= 0; i--)
+      for (let j = n - 1; j >= 0; j--)
+        dp[i][j] =
+          oldWords[i] === newWords[j]
+            ? dp[i + 1][j + 1] + 1
+            : Math.max(dp[i + 1][j], dp[i][j + 1]);
 
-    let html = ''
-    let i = 0, j = 0
+    let html = '';
+    let i = 0,
+      j = 0;
     while (i < m || j < n) {
       if (i < m && j < n && oldWords[i] === newWords[j]) {
-        html += `<span class="pp-diff-same">${esc(oldWords[i])}</span>`
-        i++; j++
-      } else if (j < n && (i >= m || dp[i+1]?.[j] <= dp[i]?.[j+1])) {
+        html += `<span class="pp-diff-same">${esc(oldWords[i])}</span>`;
+        i++;
+        j++;
+      } else if (j < n && (i >= m || dp[i + 1]?.[j] <= dp[i]?.[j + 1])) {
         if (newWords[j].trim())
-          html += `<span class="pp-diff-add">${esc(newWords[j])}</span>`
-        else
-          html += esc(newWords[j])
-        j++
+          html += `<span class="pp-diff-add">${esc(newWords[j])}</span>`;
+        else html += esc(newWords[j]);
+        j++;
       } else {
         if (oldWords[i].trim())
-          html += `<span class="pp-diff-rem">${esc(oldWords[i])}</span>`
-        else
-          html += esc(oldWords[i])
-        i++
+          html += `<span class="pp-diff-rem">${esc(oldWords[i])}</span>`;
+        else html += esc(oldWords[i]);
+        i++;
       }
     }
-    return html
+    return html;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -583,49 +685,58 @@
   // ═══════════════════════════════════════════════════════════════════════
 
   function showToast(msg, type = 'success') {
-    initShadow()
+    initShadow();
     if (!toastRoot) {
-      toastRoot = document.createElement('div')
-      toastRoot.id = '__pp_toasts'
-      shadowRoot().appendChild(toastRoot)
+      toastRoot = document.createElement('div');
+      toastRoot.id = '__pp_toasts';
+      shadowRoot().appendChild(toastRoot);
     }
 
-    const toast = document.createElement('div')
-    toast.className = `pp-toast pp-toast-${type}`
-    toast.textContent = msg
-    toastRoot.appendChild(toast)
+    const toast = document.createElement('div');
+    toast.className = `pp-toast pp-toast-${type}`;
+    toast.textContent = msg;
+    toastRoot.appendChild(toast);
 
     // Animate in
-    requestAnimationFrame(() => toast.classList.add('pp-toast-show'))
+    requestAnimationFrame(() => toast.classList.add('pp-toast-show'));
 
     // Remove after 3s
     setTimeout(() => {
-      toast.classList.remove('pp-toast-show')
-      toast.classList.add('pp-toast-hide')
-      setTimeout(() => toast.remove(), 350)
-    }, 3000)
+      toast.classList.remove('pp-toast-show');
+      toast.classList.add('pp-toast-hide');
+      setTimeout(() => toast.remove(), 350);
+    }, 3000);
   }
 
   // ── Utilities ─────────────────────────────────────────────────────────
 
   function esc(str) {
     return String(str)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   function copyText(text) {
     if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text).catch(() => fbCopy(text))
-    } else { fbCopy(text) }
+      navigator.clipboard.writeText(text).catch(() => fbCopy(text));
+    } else {
+      fbCopy(text);
+    }
   }
 
   function fbCopy(text) {
-    const ta = document.createElement('textarea')
-    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0'
-    document.body.appendChild(ta); ta.focus(); ta.select()
-    try { document.execCommand('copy') } catch(_) {}
-    document.body.removeChild(ta)
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+      document.execCommand('copy');
+    } catch (_) {}
+    document.body.removeChild(ta);
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -883,5 +994,5 @@
     @keyframes ppFadeIn  { from{opacity:0} to{opacity:1} }
     @keyframes ppSlideUp { from{opacity:0;transform:translateY(14px) scale(0.98)} to{opacity:1;transform:translateY(0) scale(1)} }
     @keyframes ppSpin    { to{transform:rotate(360deg)} }
-  `
-})()
+  `;
+})();
