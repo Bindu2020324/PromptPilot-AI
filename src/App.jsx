@@ -77,7 +77,7 @@ function ScoreBar({ label, value, color, bg }) {
       <span
         style={{
           fontSize: 9,
-          color: 'rgba(255,255,255,0.32)',
+          color: 'var(--text-faint)',
           textTransform: 'uppercase',
           letterSpacing: '0.08em',
           width: 72,
@@ -90,7 +90,7 @@ function ScoreBar({ label, value, color, bg }) {
         style={{
           flex: 1,
           height: 5,
-          background: 'rgba(255,255,255,0.07)',
+          background: 'var(--bg-secondary)',
           borderRadius: 99,
           overflow: 'hidden',
         }}
@@ -135,9 +135,9 @@ function Pill({ active, onClick, children, title }) {
         transition: 'all 0.13s',
         whiteSpace: 'nowrap',
         outline: 'none',
-        background: active ? 'rgba(124,58,237,0.22)' : 'rgba(255,255,255,0.04)',
-        borderColor: active ? 'rgba(124,58,237,0.6)' : 'rgba(255,255,255,0.1)',
-        color: active ? '#c4b5fd' : 'rgba(255,255,255,0.5)',
+        background: active ? 'var(--bg-active)' : 'var(--bg-tertiary)',
+        borderColor: active ? 'var(--border-focus)' : 'var(--border-color)',
+        color: active ? 'var(--accent-light)' : 'var(--text-tertiary)',
       }}
     >
       {children}
@@ -155,7 +155,7 @@ function Label({ children, sub }) {
           fontSize: 9,
           fontWeight: 700,
           letterSpacing: '0.1em',
-          color: 'rgba(255,255,255,0.3)',
+          color: 'var(--text-muted)',
           textTransform: 'uppercase',
         }}
       >
@@ -163,7 +163,7 @@ function Label({ children, sub }) {
       </span>
       {sub && (
         <span
-          style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', marginLeft: 5 }}
+          style={{ fontSize: 9, color: 'var(--text-very-faint)', marginLeft: 5 }}
         >
           {sub}
         </span>
@@ -215,7 +215,7 @@ function SettingsScreen({ onBack }) {
           style={{
             background: 'none',
             border: 'none',
-            color: 'rgba(255,255,255,0.4)',
+            color: 'var(--text-muted)',
             fontSize: 18,
             padding: '0 4px 0 0',
           }}
@@ -236,16 +236,17 @@ function SettingsScreen({ onBack }) {
               style={{
                 padding: '10px 12px',
                 borderRadius: 10,
-                border: '1.5px solid',
+                border: '1.5px solid var(--border-color)',
                 textAlign: 'left',
-                background:
-                  provider === p.id
-                    ? 'rgba(124,58,237,0.12)'
-                    : 'rgba(255,255,255,0.03)',
-                borderColor:
-                  provider === p.id
-                    ? 'rgba(124,58,237,0.6)'
-                    : 'rgba(255,255,255,0.1)',
+                background: provider === p.id
+                  ? 'var(--bg-active)'
+                  : 'var(--bg-tertiary)',
+                color: provider === p.id
+                  ? 'var(--text-secondary)'
+                  : 'var(--text-tertiary)',
+                borderColor: provider === p.id
+                  ? 'var(--border-focus)'
+                  : 'var(--border-color)',
                 transition: 'all 0.15s',
               }}
             >
@@ -254,13 +255,13 @@ function SettingsScreen({ onBack }) {
                   fontSize: 12,
                   fontWeight: 600,
                   color:
-                    provider === p.id ? '#c4b5fd' : 'rgba(255,255,255,0.7)',
+                    provider === p.id ? 'var(--accent-light)' : 'var(--text-secondary)',
                   marginBottom: 2,
                 }}
               >
                 {p.label}
               </div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>
                 {p.hint}
               </div>
             </button>
@@ -281,22 +282,24 @@ function SettingsScreen({ onBack }) {
             width: '100%',
             padding: '10px 12px',
             borderRadius: 9,
-            background: 'rgba(255,255,255,0.06)',
-            border: '1.5px solid rgba(255,255,255,0.12)',
-            color: 'white',
+            background: 'var(--input-bg)',
+            border: '1.5px solid var(--border-color)',
+            color: 'var(--text-primary)',
             fontSize: 13,
             outline: 'none',
             transition: 'border-color 0.18s',
           }}
-          onFocus={(e) => (e.target.style.borderColor = 'rgba(124,58,237,0.6)')}
+          onFocus={(e) =>
+            (e.target.style.borderColor = 'var(--border-focus)')
+          }
           onBlur={(e) =>
-            (e.target.style.borderColor = 'rgba(255,255,255,0.12)')
+            (e.target.style.borderColor = 'var(--border-color)')
           }
         />
         <p
           style={{
             fontSize: 10,
-            color: 'rgba(255,255,255,0.28)',
+            color: 'var(--text-faint)',
             marginTop: 5,
             lineHeight: 1.6,
           }}
@@ -315,7 +318,7 @@ function SettingsScreen({ onBack }) {
           background: saved
             ? 'rgba(5,150,105,0.8)'
             : 'linear-gradient(135deg,#7c3aed,#4f46e5)',
-          color: 'white',
+          color: 'var(--text-primary)',
           fontSize: 13,
           fontWeight: 700,
           transition: 'all 0.2s',
@@ -337,7 +340,7 @@ function SettingsScreen({ onBack }) {
         <p
           style={{
             fontSize: 11,
-            color: 'rgba(255,255,255,0.4)',
+            color: 'var(--text-muted)',
             lineHeight: 1.7,
           }}
         >
@@ -350,7 +353,7 @@ function SettingsScreen({ onBack }) {
           4. Or press{' '}
           <kbd
             style={{
-              background: 'rgba(255,255,255,0.08)',
+              background: 'var(--bg-hover)',
               padding: '1px 5px',
               borderRadius: 4,
               fontSize: 10,
@@ -375,7 +378,7 @@ function HistoryScreen({ history, onSelect, onClear, onBack }) {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '13px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.07)',
+          border: '1px solid var(--border-color)',
           flexShrink: 0,
         }}
       >
@@ -385,7 +388,7 @@ function HistoryScreen({ history, onSelect, onClear, onBack }) {
             style={{
               background: 'none',
               border: 'none',
-              color: 'rgba(255,255,255,0.4)',
+              color: 'var(--text-muted)',
               fontSize: 18,
               padding: 0,
             }}
@@ -415,7 +418,7 @@ function HistoryScreen({ history, onSelect, onClear, onBack }) {
               borderRadius: 7,
               padding: '3px 10px',
               fontSize: 11,
-              color: 'rgba(239,68,68,0.7)',
+              color: 'var(--accent-red)',
             }}
           >
             Clear all
@@ -436,7 +439,7 @@ function HistoryScreen({ history, onSelect, onClear, onBack }) {
           <div
             style={{
               textAlign: 'center',
-              color: 'rgba(255,255,255,0.22)',
+              color: 'var(--text-faint)',
               fontSize: 12,
               marginTop: 48,
               lineHeight: 1.8,
@@ -452,25 +455,27 @@ function HistoryScreen({ history, onSelect, onClear, onBack }) {
               key={i}
               onClick={() => onSelect(item)}
               style={{
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
                 borderRadius: 10,
                 padding: '10px 12px',
                 textAlign: 'left',
                 width: '100%',
                 transition: 'background 0.15s',
               }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')
-              }
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--text-primary)';
+                e.currentTarget.style.borderColor = 'var(--border-hover)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--text-secondary)';
+                e.currentTarget.style.borderColor = 'var(--border-color)';
+              }}
             >
               <div
                 style={{
                   fontSize: 10,
-                  color: 'rgba(255,255,255,0.35)',
+                  color: 'var(--text-faint)',
                   marginBottom: 3,
                 }}
               >
@@ -480,7 +485,7 @@ function HistoryScreen({ history, onSelect, onClear, onBack }) {
               <div
                 style={{
                   fontSize: 12,
-                  color: 'rgba(255,255,255,0.8)',
+                  color: 'var(--text-secondary)',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -521,7 +526,49 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('enhanced');
   const [typed, setTyped] = useState('');
   const [typeDone, setTypeDone] = useState(true);
+  const [theme, setTheme] = useState('dark');
   const abortRef = useRef(null);
+
+  // Theme initialization
+  useEffect(() => {
+    // Load saved theme or detect system preference
+    storage.get(['pp_theme']).then(({ pp_theme }) => {
+      if (pp_theme) {
+        setTheme(pp_theme);
+      } else {
+        // Detect system preference
+        const systemPrefersDark = window.matchMedia(
+          '(prefers-color-scheme: dark)'
+        ).matches;
+        setTheme(systemPrefersDark ? 'dark' : 'light');
+      }
+    });
+
+    // Listen for system theme changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e) => {
+      storage.get(['pp_theme']).then(({ pp_theme }) => {
+        // Only update if user hasn't manually set a preference
+        if (!pp_theme) {
+          setTheme(e.matches ? 'dark' : 'light');
+        }
+      });
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  // Toggle theme function
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    storage.set({ pp_theme: newTheme });
+  };
 
   useEffect(() => {
     storage.get(['pp_history']).then(({ pp_history }) => {
@@ -696,7 +743,7 @@ export default function App() {
           justifyContent: 'space-between',
           padding: '11px 14px',
           borderBottom: '1px solid rgba(255,255,255,0.07)',
-          background: 'rgba(12,12,24,0.98)',
+          background: 'var(--bg-header)',
           flexShrink: 0,
         }}
       >
@@ -739,6 +786,25 @@ export default function App() {
           </span>
         </div>
         <div style={{ display: 'flex', gap: 3 }}>
+          <button
+            onClick={toggleTheme}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              fontSize: 15,
+              padding: '4px 6px',
+              borderRadius: 7,
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'white')}
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = 'var(--text-muted)')
+            }
+          >
+            {theme === 'dark' ? '☀' : '☾'}
+          </button>
           {[
             { icon: '⟳', s: 'history', title: 'History' },
             { icon: '⚙', s: 'settings', title: 'Settings' },
@@ -750,7 +816,7 @@ export default function App() {
               style={{
                 background: 'none',
                 border: 'none',
-                color: 'rgba(255,255,255,0.38)',
+                color: 'var(--text-muted)',
                 fontSize: 15,
                 padding: '4px 6px',
                 borderRadius: 7,
@@ -758,7 +824,7 @@ export default function App() {
               }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'white')}
               onMouseLeave={(e) =>
-                (e.currentTarget.style.color = 'rgba(255,255,255,0.38)')
+                (e.currentTarget.style.color = 'var(--text-muted)')
               }
             >
               {icon}
@@ -801,9 +867,9 @@ export default function App() {
               borderRadius: 9,
               resize: 'vertical',
               minHeight: 72,
-              background: 'rgba(255,255,255,0.05)',
-              border: '1.5px solid rgba(255,255,255,0.1)',
-              color: 'white',
+              background: 'var(--bg-tertiary)',
+              border: '1.5px solid var(--border-color)',
+              color: 'var(--text-primary)',
               fontSize: 12.5,
               lineHeight: 1.7,
               outline: 'none',
@@ -811,10 +877,10 @@ export default function App() {
               transition: 'border-color 0.18s',
             }}
             onFocus={(e) =>
-              (e.target.style.borderColor = 'rgba(124,58,237,0.6)')
+              (e.target.style.borderColor = 'var(--border-focus)')
             }
             onBlur={(e) =>
-              (e.target.style.borderColor = 'rgba(255,255,255,0.1)')
+              (e.target.style.borderColor = 'var(--border-color)')
             }
           />
           <div
@@ -830,14 +896,14 @@ export default function App() {
               style={{
                 background: 'none',
                 border: 'none',
-                color: 'rgba(255,255,255,0.28)',
+                color: 'var(--text-faint)',
                 fontSize: 10,
                 padding: 0,
               }}
             >
               {showEx ? '▲ hide examples' : '▼ quick examples'}
             </button>
-            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.18)' }}>
+            <span style={{ fontSize: 9, color: 'var(--text-ultra-faint)' }}>
               Ctrl + Enter
             </span>
           </div>
@@ -864,18 +930,7 @@ export default function App() {
                   padding: '4px 9px',
                   borderRadius: 20,
                   fontSize: 10.5,
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'rgba(255,255,255,0.55)',
-                  transition: 'all 0.13s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = 'white';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.55)';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                  background: 'var(--bg-tertiary)',
                 }}
               >
                 {ex}
@@ -984,7 +1039,7 @@ export default function App() {
             style={{
               textAlign: 'center',
               fontSize: 10.5,
-              color: 'rgba(255,255,255,0.28)',
+              color: 'var(--text-faint)',
               lineHeight: 1.8,
               animation: 'pulse 1.5s ease infinite',
             }}
@@ -1006,8 +1061,8 @@ export default function App() {
             {/* Scores */}
             <div
               style={{
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
                 borderRadius: 11,
                 padding: '12px 14px',
                 display: 'flex',
@@ -1018,20 +1073,20 @@ export default function App() {
               <ScoreBar
                 label="Clarity"
                 value={result.clarity_score}
-                color="#a78bfa"
-                bg="linear-gradient(90deg,#7c3aed,#a78bfa)"
+                color="var(--accent-light)"
+                bg="linear-gradient(90deg,var(--accent-primary),var(--accent-light))"
               />
               <ScoreBar
                 label="Specificity"
                 value={result.specificity_score}
-                color="#34d399"
-                bg="linear-gradient(90deg,#059669,#34d399)"
+                color="var(--accent-green)"
+                bg="linear-gradient(90deg,#059669,var(--accent-green))"
               />
               <ScoreBar
                 label="Quality"
                 value={result.quality_score}
-                color="#60a5fa"
-                bg="linear-gradient(90deg,#1d4ed8,#60a5fa)"
+                color="var(--accent-blue)"
+                bg="linear-gradient(90deg,#1d4ed8,var(--accent-blue))"
               />
               <div
                 style={{
@@ -1039,14 +1094,14 @@ export default function App() {
                   alignItems: 'center',
                   gap: 8,
                   paddingTop: 4,
-                  borderTop: '1px solid rgba(255,255,255,0.06)',
+                  borderTop: '1px solid var(--border-color)',
                   marginTop: 2,
                 }}
               >
                 <span
                   style={{
                     fontSize: 9,
-                    color: 'rgba(255,255,255,0.3)',
+                    color: 'var(--text-muted)',
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
                   }}
@@ -1069,7 +1124,7 @@ export default function App() {
                   <span
                     style={{
                       fontSize: 10,
-                      color: 'rgba(255,255,255,0.35)',
+                      color: 'var(--text-faint)',
                       lineHeight: 1.4,
                       flex: 1,
                     }}
@@ -1085,7 +1140,7 @@ export default function App() {
               style={{
                 display: 'flex',
                 gap: 3,
-                background: 'rgba(255,255,255,0.04)',
+                background: 'var(--bg-tertiary)',
                 borderRadius: 10,
                 padding: 3,
               }}
@@ -1123,8 +1178,8 @@ export default function App() {
             {activeTab === 'enhanced' && (
               <div
                 style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: 11,
                   overflow: 'hidden',
                 }}
@@ -1132,7 +1187,7 @@ export default function App() {
                 <div
                   style={{
                     padding: '9px 12px',
-                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    borderBottom: '1px solid var(--border-color)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -1141,7 +1196,7 @@ export default function App() {
                   <span
                     style={{
                       fontSize: 10,
-                      color: 'rgba(255,255,255,0.4)',
+                      color: 'var(--text-muted)',
                       textTransform: 'uppercase',
                       letterSpacing: '0.08em',
                       display: 'flex',
@@ -1183,7 +1238,7 @@ export default function App() {
                     padding: 12,
                     fontSize: 11.5,
                     lineHeight: 1.85,
-                    color: 'rgba(255,255,255,0.8)',
+                    color: 'var(--text-secondary)',
                     whiteSpace: 'pre-wrap',
                     fontFamily: "'Courier New',Courier,monospace",
                     maxHeight: 220,
@@ -1209,8 +1264,8 @@ export default function App() {
             {activeTab === 'diff' && (
               <div
                 style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: 11,
                   overflow: 'hidden',
                 }}
@@ -1218,7 +1273,7 @@ export default function App() {
                 <div
                   style={{
                     padding: '9px 12px',
-                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    borderBottom: '1px solid var(--border-color)',
                     display: 'flex',
                     gap: 8,
                     alignItems: 'center',
@@ -1227,7 +1282,7 @@ export default function App() {
                   <span
                     style={{
                       fontSize: 10,
-                      color: 'rgba(255,255,255,0.4)',
+                      color: 'var(--text-muted)',
                       textTransform: 'uppercase',
                       letterSpacing: '0.08em',
                     }}
@@ -1311,7 +1366,7 @@ export default function App() {
                         fontSize: 9,
                         fontWeight: 700,
                         letterSpacing: '0.1em',
-                        color: 'rgba(255,255,255,0.28)',
+                        color: 'var(--text-faint)',
                         textTransform: 'uppercase',
                         marginBottom: 7,
                       }}
@@ -1344,7 +1399,7 @@ export default function App() {
                         fontSize: 9,
                         fontWeight: 700,
                         letterSpacing: '0.1em',
-                        color: 'rgba(255,255,255,0.28)',
+                        color: 'var(--text-faint)',
                         textTransform: 'uppercase',
                         marginBottom: 7,
                       }}
@@ -1358,7 +1413,7 @@ export default function App() {
                           style={{
                             fontSize: 11,
                             color: '#93c5fd',
-                            background: 'rgba(96,165,250,0.08)',
+                            background: 'var(--bg-tertiary)',
                             border: '1px solid rgba(96,165,250,0.22)',
                             padding: '3px 9px',
                             borderRadius: 20,
@@ -1378,7 +1433,7 @@ export default function App() {
                       borderRadius: 9,
                       padding: '10px 12px',
                       fontSize: 11.5,
-                      color: 'rgba(255,255,255,0.6)',
+                      color: 'var(--text-secondary)',
                       lineHeight: 1.65,
                     }}
                   >
@@ -1395,14 +1450,14 @@ export default function App() {
             style={{
               textAlign: 'center',
               padding: '10px 0 18px',
-              color: 'rgba(255,255,255,0.15)',
+              color: 'var(--text-faint)',
               fontSize: 11,
               lineHeight: 1.8,
             }}
           >
             Type a prompt above and click ✦ Forge Prompt
             <br />
-            <span style={{ color: 'rgba(167,139,250,0.4)' }}>
+            <span style={{ color: 'var(--accent-light)', opacity: 0.6 }}>
               or select text on any website to enhance it inline
             </span>
           </div>

@@ -1,3 +1,87 @@
+:root {
+  /* Dark mode (default) */
+  --bg-primary: #0c0c18;
+  --bg-secondary: rgba(255, 255, 255, 0.03);
+  --bg-tertiary: rgba(255, 255, 255, 0.04);
+  --bg-hover: rgba(255, 255, 255, 0.08);
+  --bg-active: rgba(124, 58, 237, 0.22);
+  --bg-header: rgba(12, 12, 24, 0.98);
+  --bg-tab: transparent;
+  --bg-tab-active: rgba(124, 58, 237, 0.25);
+  --bg-dot: #34d399;
+  --bg-button: rgba(255, 255, 255, 0.06);
+  --bg-button-copied: rgba(52, 211, 153, 0.15);
+  --bg-domain: rgba(52, 211, 153, 0.1);
+  --text-primary: #fff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-tertiary: rgba(255, 255, 255, 0.5);
+  --text-muted: rgba(255, 255, 255, 0.4);
+  --text-faint: rgba(255, 255, 255, 0.3);
+  --text-very-faint: rgba(255, 255, 255, 0.2);
+  --text-ultra-faint: rgba(255, 255, 255, 0.18);
+  --text-tab: rgba(255, 255, 255, 0.4);
+  --text-tab-active: #c4b5fd;
+  --text-button: rgba(255, 255, 255, 0.6);
+  --text-button-copied: #34d399;
+  --text-domain: #6ee7b7;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-hover: rgba(255, 255, 255, 0.25);
+  --border-focus: rgba(124, 58, 237, 0.6);
+  --border-color-domain: rgba(52, 211, 153, 0.25);
+  --accent-primary: #7c3aed;
+  --accent-secondary: #4f46e5;
+  --accent-light: #c4b5fd;
+  --accent-green: #34d399;
+  --accent-blue: #60a5fa;
+  --accent-red: #f87171;
+  --accent-yellow: #fcd34d;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.12);
+  --input-bg: rgba(255, 255, 255, 0.06);
+  --placeholder-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="light"] {
+  /* Light mode */
+  --bg-primary: #ffffff;
+  --bg-secondary: rgba(0, 0, 0, 0.04);
+  --bg-tertiary: rgba(0, 0, 0, 0.06);
+  --bg-hover: rgba(0, 0, 0, 0.08);
+  --bg-active: rgba(124, 58, 237, 0.15);
+  --bg-header: rgba(255, 255, 255, 0.98);
+  --bg-tab: transparent;
+  --bg-tab-active: rgba(124, 58, 237, 0.15);
+  --bg-dot: #059669;
+  --bg-button: rgba(0, 0, 0, 0.05);
+  --bg-button-copied: rgba(5, 150, 105, 0.1);
+  --bg-domain: rgba(5, 150, 105, 0.08);
+  --text-primary: #1a1a2e;
+  --text-secondary: rgba(26, 26, 46, 0.8);
+  --text-tertiary: rgba(26, 26, 46, 0.65);
+  --text-muted: rgba(26, 26, 46, 0.55);
+  --text-faint: rgba(26, 26, 46, 0.45);
+  --text-very-faint: rgba(26, 26, 46, 0.35);
+  --text-ultra-faint: rgba(26, 26, 46, 0.3);
+  --text-tab: rgba(26, 26, 46, 0.4);
+  --text-tab-active: #8b5cf6;
+  --text-button: rgba(26, 26, 46, 0.6);
+  --text-button-copied: #059669;
+  --text-domain: #059669;
+  --border-color: rgba(0, 0, 0, 0.12);
+  --border-hover: rgba(0, 0, 0, 0.25);
+  --border-focus: rgba(124, 58, 237, 0.6);
+  --border-color-domain: rgba(5, 150, 105, 0.2);
+  --accent-primary: #7c3aed;
+  --accent-secondary: #4f46e5;
+  --accent-light: #8b5cf6;
+  --accent-green: #059669;
+  --accent-blue: #1d4ed8;
+  --accent-red: #dc2626;
+  --accent-yellow: #d97706;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.25);
+  --input-bg: rgba(0, 0, 0, 0.06);
+  --placeholder-color: rgba(26, 26, 46, 0.45);
+}
+
 *,
 *::before,
 *::after {
@@ -10,13 +94,13 @@ body {
   width: 420px;
   height: 600px;
   overflow: hidden;
-  background: #0c0c18;
+  background: var(--bg-primary);
   font-family:
     'Segoe UI',
     system-ui,
     -apple-system,
     sans-serif;
-  color: #fff;
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
 }
 #root {
@@ -25,7 +109,7 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: #0c0c18;
+  background: var(--bg-primary);
 }
 ::-webkit-scrollbar {
   width: 3px;
@@ -39,7 +123,7 @@ body {
 }
 textarea::placeholder,
 input::placeholder {
-  color: rgba(255, 255, 255, 0.2);
+  color: var(--placeholder-color);
 }
 button {
   font-family: inherit;
