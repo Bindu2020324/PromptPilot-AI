@@ -24,6 +24,9 @@ export default defineConfig({
           args: [
             `--disable-extensions-except=${extensionPath}`,
             `--load-extension=${extensionPath}`,
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-gpu',
           ],
         },
       },
