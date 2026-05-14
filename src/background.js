@@ -183,65 +183,97 @@ async function callAPI({ prompt, domain, mode, provider, apiKey }) {
 }
 
 async function callGemini(sys, userMsg, apiKey) {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: sys }] },
-        contents: [{ parts: [{ text: userMsg }] }],
-        generationConfig: { maxOutputTokens: 2000, temperature: 0.3 },
-      }),
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: sys }] },
+          contents: [{ parts: [{ text: userMsg }] }],
+          generationConfig: { maxOutputTokens: 2000, temperature: 0.3 },
+        }),
+      }
+    );
+    await assertOK(res, 'Gemini');
+    const text = d?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!text.trim()) {
+      throw new Error('Empty Response: AI returned empty response. Try rephrasing your prompt.');
     }
-  );
-  await assertOK(res, 'Gemini');
-  const d = await res.json();
-  return d?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return text;
+  } catch (error) {
+    if (error.message.includes('fetch')) {
+      throw new Error('Network Error: Can\'t reach Gemini. Check your internet connection.');
+    }
+    throw error;
+  }
 }
 
 async function callGroq(sys, userMsg, apiKey) {
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey.trim()}`,
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      max_tokens: 2000,
-      temperature: 0.3,
-      messages: [
-        { role: 'system', content: sys },
-        { role: 'user', content: userMsg },
-      ],
-    }),
-  });
-  await assertOK(res, 'Groq');
-  const d = await res.json();
-  return d?.choices?.[0]?.message?.content || '';
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey.trim()}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 2000,
+        temperature: 0.3,
+        messages: [
+          { role: 'system', content: sys },
+          { role: 'user', content: userMsg },
+        ],
+      }),
+    });
+    await assertOK(res, 'Groq');
+    const d = await res.json();
+    const text = d?.choices?.[0]?.message?.content || '';
+    if (!text.trim()) {
+      throw new Error('Empty Response: AI returned empty response. Try rephrasing your prompt.');
+    }
+    return text;
+  } catch (error) {
+    if (error.message.includes('fetch')) {
+      throw new Error('Network Error: Can\'t reach Groq. Check your internet connection.');
+    }
+    throw error;
+  }
 }
 
 async function callOpenAI(sys, userMsg, apiKey) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey.trim()}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      max_tokens: 2000,
-      temperature: 0.3,
-      messages: [
-        { role: 'system', content: sys },
-        { role: 'user', content: userMsg },
-      ],
-    }),
-  });
-  await assertOK(res, 'OpenAI');
-  const d = await res.json();
-  return d?.choices?.[0]?.message?.content || '';
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey.trim()}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 2000,
+        temperature: 0.3,
+        messages: [
+          { role: 'system', content: sys },
+          { role: 'user', content: userMsg },
+        ],
+      }),
+    });
+    await assertOK(res, 'OpenAI');
+    const d = await res.json();
+    const text = d?.choices?.[0]?.message?.content || '';
+    if (!text.trim()) {
+      throw new Error('Empty Response: AI returned empty response. Try rephrasing your prompt.');
+    }
+    return text;
+  } catch (error) {
+    if (error.message.includes('fetch')) {
+      throw new Error('Network Error: Can\'t reach OpenAI. Check your internet connection.');
+    }
+    throw error;
+  }
 }
 
 async function assertOK(res, provider) {
@@ -251,9 +283,17 @@ async function assertOK(res, provider) {
     const b = await res.json();
     msg = b?.error?.message || msg;
   } catch (_) {}
-  if (res.status === 401)
-    throw new Error(`Invalid ${provider} API key — check Settings.`);
+  if (res.status === 401) {
+    const providerLinks = {
+      Gemini: 'aistudio.google.com',
+      Groq: 'console.groq.com',
+      OpenAI: 'platform.openai.com'
+    };
+    throw new Error(`Invalid API Key: Your ${provider} key is incorrect. Go to Settings → re-copy from ${providerLinks[provider] || provider.toLowerCase() + '.com'}.`);
+  }
   if (res.status === 429)
-    throw new Error(`${provider} rate limit — wait a moment.`);
-  throw new Error(msg);
+    throw new Error(`Rate Limit Exceeded: You've hit the rate limit. Wait 60 seconds and try again.`);
+  if (res.status >= 500)
+    throw new Error(`Network Error: Can't reach ${provider}. Check your internet connection.`);
+  throw new Error(`API Error: ${msg}`);
 }
