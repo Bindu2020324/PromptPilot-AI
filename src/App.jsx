@@ -1177,6 +1177,27 @@ export default function App() {
                   >
                     {copied ? '✓ Copied!' : 'Copy'}
                   </button>
+                  {copied && (
+                    <div
+                      style={{
+                        position: 'fixed',
+                        bottom: 20,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: 'rgba(30,30,40,0.95)',
+                        border: '1px solid rgba(52,211,153,0.3)',
+                        color: '#34d399',
+                        padding: '8px 16px',
+                        borderRadius: 8,
+                        fontSize: 12,
+                        animation: 'fadeUp 0.2s ease',
+                        zIndex: 9999,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      ✅ Copied to clipboard!
+                    </div>
+                  )}
                 </div>
                 <div
                   style={{
