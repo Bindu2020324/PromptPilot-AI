@@ -9,14 +9,14 @@ describe('ScoreBar', () => {
   });
 
   it('clamps the progress width between 0 and 100', () => {
-    const { container, rerender } = render(
+    const { rerender } = render(
       <ScoreBar label="Test" value={150} color="#fff" bg="#4f46e5" />
     );
-    const bar = container.querySelector('div > div > div');
-    expect(bar).toBeTruthy();
-    expect(bar.style.width).toBe('100%');
+    const bar = screen.getByTestId('scorebar-fill');
+    expect(bar).toBeInTheDocument();
+    expect(bar.getAttribute('style')).toContain('width: 100%');
 
     rerender(<ScoreBar label="Test" value={-10} color="#fff" bg="#4f46e5" />);
-    expect(bar.style.width).toBe('0%');
+    expect(bar.getAttribute('style')).toContain('width: 0%');
   });
 });

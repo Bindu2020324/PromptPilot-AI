@@ -97,6 +97,7 @@ function ScoreBar({ label, value, color, bg }) {
         }}
       >
         <div
+          data-testid="scorebar-fill"
           style={{
             height: '100%',
             width: pct + '%',
@@ -126,6 +127,8 @@ function ScoreBar({ label, value, color, bg }) {
 function Pill({ active, onClick, children, title }) {
   return (
     <button
+      data-testid="pill-button"
+      data-active={active ? 'true' : 'false'}
       onClick={onClick}
       title={title}
       style={{

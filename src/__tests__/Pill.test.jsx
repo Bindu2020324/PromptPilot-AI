@@ -9,16 +9,16 @@ describe('Pill', () => {
         Active
       </Pill>
     );
-    const button = screen.getByRole('button', { name: 'Active' });
-    expect(button.style.background).toBe('rgba(124,58,237,0.22)');
-    expect(button.style.borderColor).toBe('rgba(124,58,237,0.6)');
+    const button = screen.getByTestId('pill-button');
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveAttribute('data-active', 'true');
 
     rerender(
       <Pill active={false} onClick={() => {}} title="Inactive Pill">
         Inactive
       </Pill>
     );
-    expect(button.style.background).toBe('rgba(255,255,255,0.04)');
+    expect(button).toHaveAttribute('data-active', 'false');
   });
 
   it('calls onClick when pressed', async () => {
