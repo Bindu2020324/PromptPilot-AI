@@ -628,7 +628,7 @@ export default function App() {
       (res) => {
         setLoading(false);
         if (!res?.ok) {
-          setError(res?.error || 'Something went wrong.');
+          setError(res?.error || 'Unexpected Error: Something went wrong. Please try again.');
           return;
         }
         const r = res.data;
@@ -931,6 +931,8 @@ export default function App() {
                   borderRadius: 20,
                   fontSize: 10.5,
                   background: 'var(--bg-tertiary)',
+                  color: 'var(--text-tertiary)',
+                  border: '1px solid var(--border-color)',
                 }}
               >
                 {ex}
@@ -973,22 +975,32 @@ export default function App() {
         </div>
 
         {/* Error */}
-        {error && (
-          <div
-            style={{
-              background: 'rgba(239,68,68,0.08)',
-              border: '1px solid rgba(239,68,68,0.28)',
-              borderRadius: 9,
-              padding: '9px 12px',
-              color: '#fca5a5',
-              fontSize: 11.5,
-              lineHeight: 1.55,
-              animation: 'fadeUp 0.2s ease',
-            }}
-          >
-            ⚠ {error}
-          </div>
-        )}
+        {error && (() => {
+          const parts = error.split(': ');
+          const title = parts.length > 1 ? parts[0] : 'Error';
+          const message = parts.length > 1 ? parts.slice(1).join(': ') : error;
+          return (
+            <div
+              style={{
+                background: 'rgba(239,68,68,0.08)',
+                border: '1px solid rgba(239,68,68,0.28)',
+                borderRadius: 9,
+                padding: '9px 12px',
+                color: '#fca5a5',
+                fontSize: 11.5,
+                lineHeight: 1.55,
+                animation: 'fadeUp 0.2s ease',
+              }}
+            >
+              <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                ⚠ {title}
+              </div>
+              <div>
+                {message}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Forge button */}
         <button
