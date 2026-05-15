@@ -931,6 +931,8 @@ export default function App() {
                   borderRadius: 20,
                   fontSize: 10.5,
                   background: 'var(--bg-tertiary)',
+                  color: 'var(--text-tertiary)',
+                  border: '1px solid var(--border-color)',
                 }}
               >
                 {ex}
