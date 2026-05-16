@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { versioningService } from './versioningService';
+import { PromptsList, VersionHistoryPanel, DiffView } from './historyComponents';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -515,6 +517,9 @@ function HistoryScreen({ history, onSelect, onClear, onBack }) {
 export default function App() {
   const [screen, setScreen] = useState('main');
   const [history, setHistory] = useState([]);
+  const [prompts, setPrompts] = useState([]);
+  const [selectedPrompt, setSelectedPrompt] = useState(null);
+  const [compareVersion, setCompareVersion] = useState(null);
   const [input, setInput] = useState('');
   const [domain, setDomain] = useState('');
   const [mode, setMode] = useState('technical');
@@ -570,10 +575,18 @@ export default function App() {
     storage.set({ pp_theme: newTheme });
   };
 
+  // Version system initialization - migrate legacy history on first load
   useEffect(() => {
-    storage.get(['pp_history']).then(({ pp_history }) => {
-      if (pp_history) setHistory(pp_history);
-    });
+    (async () => {
+      await versioningService.migrateFromLegacy();
+      const allPrompts = await versioningService.getAllPrompts();
+      setPrompts(allPrompts);
+      
+      // Fallback: also load legacy history for backward compatibility
+      storage.get(['pp_history']).then(({ pp_history }) => {
+        if (pp_history) setHistory(pp_history);
+      });
+    })();
   }, []);
 
   // Typing animation
@@ -625,7 +638,7 @@ export default function App() {
         provider: pp_provider || 'gemini',
         apiKey: pp_key,
       },
-      (res) => {
+      async (res) => {
         setLoading(false);
         if (!res?.ok) {
           setError(res?.error || 'Unexpected Error: Something went wrong. Please try again.');
@@ -634,16 +647,49 @@ export default function App() {
         const r = res.data;
         setResult(r);
         setActiveTab('enhanced');
-        const entry = {
-          ...r,
-          original: input.trim(),
-          mode,
-          domain,
-          ts: Date.now(),
-        };
-        const updated = [entry, ...history.slice(0, 49)];
-        setHistory(updated);
-        storage.set({ pp_history: updated });
+
+        // Create version entry using versioning service
+        try {
+          let updatedPrompt;
+          // Check if we have an existing prompt to version or create new
+          const existingPrompts = await versioningService.getAllPrompts();
+          const matchingPrompt = existingPrompts.find(p => p.original_text === input.trim());
+          
+          if (matchingPrompt) {
+            // Add new version to existing prompt
+            updatedPrompt = await versioningService.addVersion(matchingPrompt.id, r, {
+              domain,
+              mode,
+              provider: pp_provider || 'gemini',
+              change_note: 'Re-enhanced with same prompt',
+            });
+          } else {
+            // Create new prompt with first version
+            updatedPrompt = await versioningService.createPrompt(input.trim(), r, {
+              domain,
+              mode,
+              provider: pp_provider || 'gemini',
+            });
+          }
+
+          // Refresh prompts list
+          const allPrompts = await versioningService.getAllPrompts();
+          setPrompts(allPrompts);
+
+          // Also maintain legacy history for backward compatibility
+          const entry = {
+            ...r,
+            original: input.trim(),
+            mode,
+            domain,
+            ts: Date.now(),
+          };
+          const updated = [entry, ...history.slice(0, 49)];
+          setHistory(updated);
+          storage.set({ pp_history: updated });
+        } catch (err) {
+          console.error('Error saving version:', err);
+        }
       }
     );
   }, [input, domain, mode, loading, history]);
@@ -672,8 +718,28 @@ export default function App() {
 
   function handleClearHistory() {
     if (!window.confirm('Clear all history?')) return;
-    setHistory([]);
-    storage.set({ pp_history: [] });
+    (async () => {
+      await versioningService.clearAll();
+      setPrompts([]);
+      setHistory([]);
+      storage.set({ pp_history: [] });
+    })();
+  }
+
+  async function handleRestoreVersion(promptId, versionNumber) {
+    if (!window.confirm(`Restore to version ${versionNumber}?`)) return;
+    try {
+      const restoredPrompt = await versioningService.restoreVersion(promptId, versionNumber);
+      const allPrompts = await versioningService.getAllPrompts();
+      setPrompts(allPrompts);
+      setCompareVersion(null);
+    } catch (err) {
+      setError(`Error restoring version: ${err.message}`);
+    }
+  }
+
+  async function handleCompareVersion(promptId, versionNumber) {
+    setCompareVersion(versionNumber);
   }
 
   // Diff builder
@@ -714,15 +780,55 @@ export default function App() {
 
   if (screen === 'settings')
     return <SettingsScreen onBack={() => setScreen('main')} />;
+  
   if (screen === 'history')
     return (
-      <HistoryScreen
-        history={history}
-        onSelect={handleHistorySelect}
-        onClear={handleClearHistory}
+      <PromptsList
+        prompts={prompts}
+        onSelectPrompt={(prompt) => {
+          setSelectedPrompt(prompt);
+          setScreen('version-history');
+        }}
+        onClearAll={handleClearHistory}
         onBack={() => setScreen('main')}
       />
     );
+
+  if (screen === 'version-history' && selectedPrompt)
+    return (
+      <VersionHistoryPanel
+        prompt={selectedPrompt}
+        onRestore={(versionNum) => {
+          handleRestoreVersion(selectedPrompt.id, versionNum);
+        }}
+        onCompare={(versionNum) => {
+          setCompareVersion(versionNum);
+          setScreen('version-compare');
+        }}
+        onBack={() => {
+          setSelectedPrompt(null);
+          setScreen('history');
+        }}
+      />
+    );
+
+  if (screen === 'version-compare' && selectedPrompt && compareVersion) {
+    const latestVersion = selectedPrompt.versions?.[0];
+    const comparedVersion = selectedPrompt.versions?.find(v => v.version_number === compareVersion);
+    if (!latestVersion || !comparedVersion) {
+      return <div>Version not found</div>;
+    }
+    return (
+      <DiffView
+        version1={comparedVersion}
+        version2={latestVersion}
+        onClose={() => {
+          setCompareVersion(null);
+          setScreen('version-history');
+        }}
+      />
+    );
+  }
 
   const diffParts = result ? buildDiff(input, result.enhanced_prompt) : [];
 
