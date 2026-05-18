@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { versioningService } from './versioningService';
 import { PromptsList, VersionHistoryPanel, DiffView } from './historyComponents';
+import ScorePanel, { MiniScoreBadge } from './components/ScorePanel';
+import ScoreTrends from './components/ScoreTrends';
+import { scorePrompt } from './scoring/PromptScorer';
+import { saveScore } from './scoring/ScoreHistory';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -676,6 +680,20 @@ export default function App() {
           const allPrompts = await versioningService.getAllPrompts();
           setPrompts(allPrompts);
 
+          // Save score to history for trend tracking
+          try {
+            const enhancedScoreData = scorePrompt(r.enhanced_prompt || '');
+            await saveScore({
+              promptText: input.trim(),
+              scores: enhancedScoreData.dimensions,
+              overall: enhancedScoreData.overall,
+              grade: enhancedScoreData.grade,
+              type: 'enhanced',
+            });
+          } catch (scoreErr) {
+            console.error('Error saving score:', scoreErr);
+          }
+
           // Also maintain legacy history for backward compatibility
           const entry = {
             ...r,
@@ -780,6 +798,18 @@ export default function App() {
 
   if (screen === 'settings')
     return <SettingsScreen onBack={() => setScreen('main')} />;
+
+  if (screen === 'score')
+    return (
+      <ScorePanel
+        promptText={input}
+        enhancedText={result?.enhanced_prompt || ''}
+        onBack={() => setScreen('main')}
+      />
+    );
+
+  if (screen === 'score-trends')
+    return <ScoreTrends onBack={() => setScreen('main')} />;
   
   if (screen === 'history')
     return (
@@ -912,6 +942,7 @@ export default function App() {
             {theme === 'dark' ? '☀' : '☾'}
           </button>
           {[
+            { icon: '📈', s: 'score-trends', title: 'Score Trends' },
             { icon: '⟳', s: 'history', title: 'History' },
             { icon: '⚙', s: 'settings', title: 'Settings' },
           ].map(({ icon, s, title }) => (
@@ -1009,9 +1040,33 @@ export default function App() {
             >
               {showEx ? '▲ hide examples' : '▼ quick examples'}
             </button>
-            <span style={{ fontSize: 9, color: 'var(--text-ultra-faint)' }}>
-              Ctrl + Enter
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {input.trim().length > 3 && (
+                <button
+                  onClick={() => {
+                    const data = scorePrompt(input);
+                    saveScore({
+                      promptText: input,
+                      scores: data.dimensions,
+                      overall: data.overall,
+                      grade: data.grade,
+                      type: 'manual',
+                    });
+                    setScreen('score');
+                  }}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    padding: 0, display: 'flex', alignItems: 'center',
+                  }}
+                  title="View detailed prompt score"
+                >
+                  <MiniScoreBadge text={input} />
+                </button>
+              )}
+              <span style={{ fontSize: 9, color: 'var(--text-ultra-faint)' }}>
+                Ctrl + Enter
+              </span>
+            </div>
           </div>
         </div>
 
