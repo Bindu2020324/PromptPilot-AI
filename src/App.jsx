@@ -417,7 +417,7 @@ function AnalyticsScreen({ analytics, onBack }) {
 
 // ─── History screen ───────────────────────────────────────────────────────────
 
-function HistoryScreen({ history, onSelect, onClear, onBack }) {
+function HistoryScreen({ history, onSelect, onClear, onBack, searchQuery, setSearchQuery, showFavoritesOnly, setShowFavoritesOnly, toggleFavorite }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div
@@ -473,6 +473,41 @@ function HistoryScreen({ history, onSelect, onClear, onBack }) {
           </button>
         )}
       </div>
+
+      <div style={{ padding: '10px 12px', display: 'flex', gap: 8 }}>
+        <input
+          type="text"
+          placeholder="Search prompts..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            flex: 1,
+            padding: '8px 10px',
+            borderRadius: 8,
+            border: '1px solid var(--border-color)',
+            background: 'var(--bg-tertiary)',
+            color: 'var(--text-primary)',
+            fontSize: 12,
+          }}
+        />
+
+        <button
+          onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+          style={{
+            padding: '8px 10px',
+            borderRadius: 8,
+            border: '1px solid var(--border-color)',
+            background: showFavoritesOnly
+              ? 'rgba(251,191,36,0.2)'
+              : 'var(--bg-tertiary)',
+            color: '#facc15',
+            fontSize: 12,
+          }}
+        >
+          ⭐
+        </button>
+      </div>
+
       <div
         style={{
           flex: 1,
@@ -498,7 +533,19 @@ function HistoryScreen({ history, onSelect, onClear, onBack }) {
             Enhance some prompts first.
           </div>
         ) : (
-          history.map((item, i) => (
+          history
+            .filter((item) => {
+              const matchesSearch =
+                item.original
+                  ?.toLowerCase()
+                  .includes(searchQuery.toLowerCase());
+
+              const matchesFavorite =
+                !showFavoritesOnly || item.favorite;
+
+              return matchesSearch && matchesFavorite;
+            })
+            .map((item, i) => (
             <button
               key={i}
               onClick={() => onSelect(item)}
@@ -520,6 +567,30 @@ function HistoryScreen({ history, onSelect, onClear, onBack }) {
                 e.currentTarget.style.borderColor = 'var(--border-color)';
               }}
             >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  marginBottom: 4,
+                }}
+              >
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite(item.ts);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    color: item.favorite ? '#facc15' : '#666',
+                  }}
+                >
+                  {item.favorite ? '★' : '☆'}
+                </button>
+              </div>
+
               <div
                 style={{
                   fontSize: 10,
@@ -563,11 +634,16 @@ function HistoryScreen({ history, onSelect, onClear, onBack }) {
 export default function App() {
   const [screen, setScreen] = useState('main');
   const [history, setHistory] = useState([]);
+ feature/prompt-analytics-dashboard
   const [analytics, setAnalytics] = useState({
     totalPrompts: 0,
     favorites: 0,
     categories: {},
   });
+=======
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+ main
   const [prompts, setPrompts] = useState([]);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
   const [compareVersion, setCompareVersion] = useState(null);
@@ -584,6 +660,7 @@ export default function App() {
   const [typeDone, setTypeDone] = useState(true);
   const [theme, setTheme] = useState('dark');
   const abortRef = useRef(null);
+  
 
   // Theme initialization
   useEffect(() => {
@@ -748,6 +825,7 @@ export default function App() {
             mode,
             domain,
             ts: Date.now(),
+            favorite: false,
           };
           const updated = [entry, ...history.slice(0, 49)];
           setHistory(updated);
@@ -776,6 +854,17 @@ export default function App() {
     });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function toggleFavorite(ts) {
+    const updated = history.map((item) =>
+      item.ts === ts
+        ? { ...item, favorite: !item.favorite }
+        : item
+    );
+
+    setHistory(updated);
+    storage.set({ pp_history: updated });
   }
 
   function handleHistorySelect(item) {
@@ -873,14 +962,16 @@ export default function App() {
   
   if (screen === 'history')
     return (
-      <PromptsList
-        prompts={prompts}
-        onSelectPrompt={(prompt) => {
-          setSelectedPrompt(prompt);
-          setScreen('version-history');
-        }}
-        onClearAll={handleClearHistory}
+      <HistoryScreen
+        history={history}
+        onSelect={handleHistorySelect}
+        onClear={handleClearHistory}
         onBack={() => setScreen('main')}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        showFavoritesOnly={showFavoritesOnly}
+        setShowFavoritesOnly={setShowFavoritesOnly}
+        toggleFavorite={toggleFavorite}
       />
     );
 
