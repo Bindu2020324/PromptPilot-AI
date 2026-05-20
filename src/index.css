@@ -90,26 +90,35 @@
   padding: 0;
 }
 html,
-body {
-  width: 420px;
-  height: 600px;
-  overflow: hidden;
+body,
+#root {
+  width: 100%;
+  min-width: 320px;
+  max-width: 420px;
+
+  height: 100%;
+  min-height: 500px;
+  max-height: 600px;
+
+  overflow-x: hidden;
+  overflow-y: auto;
+
   background: var(--bg-primary);
+
   font-family:
     'Segoe UI',
     system-ui,
     -apple-system,
     sans-serif;
+
   color: var(--text-primary);
+
   -webkit-font-smoothing: antialiased;
 }
+
 #root {
-  width: 420px;
-  height: 600px;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: var(--bg-primary);
 }
 ::-webkit-scrollbar {
   width: 3px;
@@ -163,5 +172,15 @@ button:active {
   }
   50% {
     opacity: 0.4;
+  }
+}
+@media (max-width: 480px) {
+  html,
+  body,
+  #root {
+    max-width: 100%;
+    min-width: 100%;
+    height: auto;
+    min-height: 100vh;
   }
 }
