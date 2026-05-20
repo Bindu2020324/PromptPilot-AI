@@ -561,13 +561,18 @@
                 return;
               }
 
-              await persistEnhancedEntry({
-                originalText,
-                mode,
-                domain,
-                provider: pp_provider || 'gemini',
-                result: res.data,
-              });
+              try {
+                await persistEnhancedEntry({
+                  originalText,
+                  mode,
+                  domain,
+                  provider: pp_provider || 'gemini',
+                  result: res.data,
+                });
+              } catch (error) {
+                console.error('Failed to persist enhanced entry:', error);
+              }
+
               renderResult(res.data, originalText, overlayEl);
             }
           );
