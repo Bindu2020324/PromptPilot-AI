@@ -74,6 +74,25 @@ const storage = {
   set: (obj) => new Promise((res) => chrome.storage.local.set(obj, res)),
 };
 
+function buildLegacyHistoryFromPrompts(prompts = []) {
+  return (prompts || [])
+    .map((prompt) => {
+      const latest = prompt?.versions?.[0];
+      if (!latest) return null;
+      return {
+        ...latest,
+        original: prompt.original_text,
+        mode: prompt.mode || 'technical',
+        domain: prompt.domain || '',
+        ts: prompt.updated_at || latest.created_at || Date.now(),
+        favorite: false,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (b.ts || 0) - (a.ts || 0))
+    .slice(0, 50);
+}
+
 // ─── Score bar component ──────────────────────────────────────────────────────
 
 function ScoreBar({ label, value, color, bg }) {
@@ -180,10 +199,13 @@ function Label({ children, sub }) {
 
 // ─── Settings screen ──────────────────────────────────────────────────────────
 
-function SettingsScreen({ onBack }) {
+function SettingsScreen({ onBack, onPromptsImported }) {
   const [provider, setProvider] = useState('gemini');
   const [key, setKey] = useState('');
   const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     storage.get(['pp_key', 'pp_provider']).then(({ pp_key, pp_provider }) => {
@@ -199,6 +221,67 @@ function SettingsScreen({ onBack }) {
       setSaved(false);
       onBack();
     }, 1200);
+  }
+
+  async function handleExportPrompts() {
+    try {
+      setBusy(true);
+      setNotice(null);
+      const payload = await versioningService.exportPrompts();
+      const json = JSON.stringify(payload, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const stamp = new Date().toISOString().slice(0, 10);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `promptpilot-prompts-${stamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setNotice({
+        type: 'success',
+        text: `Exported ${payload.prompt_count} prompt(s).`,
+      });
+    } catch (err) {
+      setNotice({
+        type: 'error',
+        text: `Export failed: ${err?.message || 'Unknown error.'}`,
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleImportFile(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      setBusy(true);
+      setNotice(null);
+      const text = await file.text();
+      const payload = JSON.parse(text);
+      const overwrite = window.confirm(
+        'Import mode:\nOK = overwrite duplicates\nCancel = merge and skip duplicates.'
+      );
+      const result = await versioningService.importPrompts(payload, {
+        mode: overwrite ? 'overwrite' : 'merge',
+      });
+      onPromptsImported?.(result.prompts);
+      setNotice({
+        type: 'success',
+        text: `Imported ${result.imported}/${result.totalInFile}. Added: ${result.added}, Replaced: ${result.replaced}, Skipped: ${result.skipped}.`,
+      });
+    } catch (err) {
+      setNotice({
+        type: 'error',
+        text: `Import failed: ${err?.message || 'Invalid file.'}`,
+      });
+    } finally {
+      setBusy(false);
+    }
   }
 
   const prov = PROVIDERS.find((p) => p.id === provider);
@@ -333,6 +416,82 @@ function SettingsScreen({ onBack }) {
         {saved ? '✓ Saved!' : 'Save Settings'}
       </button>
 
+      <div
+        style={{
+          padding: '12px 14px',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}
+      >
+        <Label>Prompt Backup</Label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={handleExportPrompts}
+            disabled={busy}
+            style={{
+              flex: 1,
+              padding: '9px 10px',
+              borderRadius: 8,
+              border: '1px solid var(--border-color)',
+              background: 'var(--bg-tertiary)',
+              color: 'var(--text-secondary)',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            Export Prompts
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={busy}
+            style={{
+              flex: 1,
+              padding: '9px 10px',
+              borderRadius: 8,
+              border: '1px solid rgba(124,58,237,0.35)',
+              background: 'rgba(124,58,237,0.12)',
+              color: '#c4b5fd',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            Import Prompts
+          </button>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          onChange={handleImportFile}
+          style={{ display: 'none' }}
+        />
+        {notice && (
+          <div
+            style={{
+              fontSize: 11,
+              lineHeight: 1.5,
+              color: notice.type === 'success' ? '#86efac' : '#fca5a5',
+              background:
+                notice.type === 'success'
+                  ? 'rgba(34,197,94,0.1)'
+                  : 'rgba(239,68,68,0.1)',
+              border:
+                notice.type === 'success'
+                  ? '1px solid rgba(34,197,94,0.25)'
+                  : '1px solid rgba(239,68,68,0.25)',
+              padding: '8px 10px',
+              borderRadius: 8,
+            }}
+          >
+            {notice.text}
+          </div>
+        )}
+      </div>
+
       {/* Info */}
       <div
         style={{
@@ -376,40 +535,46 @@ function SettingsScreen({ onBack }) {
 
 function AnalyticsScreen({ analytics, onBack }) {
   return (
-    <div style={{ padding: 20, color: "white" }}>
-      <button onClick={onBack}>← Back</button>
-
-      <h1>Prompt Analytics</h1>
-
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
-          gap: 16,
-          marginTop: 20,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '13px 16px',
+          borderBottom: '1px solid var(--border-color)',
+          flexShrink: 0,
         }}
       >
-        <div
-          style={{
-            background: "#1e1e2f",
-            padding: 20,
-            borderRadius: 12,
-          }}
+        <button
+          onClick={onBack}
+          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 18, padding: 0 }}
         >
-          <h2>Total Prompts</h2>
-          <p>{analytics.totalPrompts}</p>
-        </div>
+          ←
+        </button>
+        <span style={{ fontSize: 14, fontWeight: 700 }}>Prompt Analytics</span>
+      </div>
 
-        <div
-          style={{
-            background: "#1e1e2f",
-            padding: 20,
-            borderRadius: 12,
-          }}
-        >
-          <h2>Favorites</h2>
-          <p>{analytics.favorites}</p>
-        </div>
+      <div style={{ padding: 16, display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+        {[
+          { label: 'Total Prompts', value: analytics.totalPrompts, color: '#a78bfa' },
+          { label: 'Favorites', value: analytics.favorites, color: '#facc15' },
+        ].map((item) => (
+          <div
+            key={item.label}
+            style={{
+              background: 'var(--bg-tertiary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 12,
+              padding: '14px 16px',
+            }}
+          >
+            <div style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              {item.label}
+            </div>
+            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: item.color }}>{item.value}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -634,16 +799,13 @@ function HistoryScreen({ history, onSelect, onClear, onBack, searchQuery, setSea
 export default function App() {
   const [screen, setScreen] = useState('main');
   const [history, setHistory] = useState([]);
- feature/prompt-analytics-dashboard
   const [analytics, setAnalytics] = useState({
     totalPrompts: 0,
     favorites: 0,
     categories: {},
   });
-=======
   const [searchQuery, setSearchQuery] = useState('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
- main
   const [prompts, setPrompts] = useState([]);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
   const [compareVersion, setCompareVersion] = useState(null);
@@ -709,13 +871,31 @@ export default function App() {
       await versioningService.migrateFromLegacy();
       const allPrompts = await versioningService.getAllPrompts();
       setPrompts(allPrompts);
-      
-      // Fallback: also load legacy history for backward compatibility
-      storage.get(['pp_history']).then(({ pp_history }) => {
-        if (pp_history) setHistory(pp_history);
-      });
+
+      const derivedHistory = buildLegacyHistoryFromPrompts(allPrompts);
+      if (derivedHistory.length > 0) {
+        setHistory(derivedHistory);
+        storage.set({ pp_history: derivedHistory });
+      } else {
+        storage.get(['pp_history']).then(({ pp_history }) => {
+          setHistory(pp_history || []);
+        });
+      }
     })();
   }, []);
+
+  useEffect(() => {
+    const categories = {};
+    history.forEach((item) => {
+      const key = item.domain_detected || item.domain || 'General';
+      categories[key] = (categories[key] || 0) + 1;
+    });
+    setAnalytics({
+      totalPrompts: prompts.length || history.length,
+      favorites: history.filter((item) => item.favorite).length,
+      categories,
+    });
+  }, [prompts, history]);
 
   // Typing animation
   useEffect(() => {
@@ -829,11 +1009,6 @@ export default function App() {
           };
           const updated = [entry, ...history.slice(0, 49)];
           setHistory(updated);
-          setAnalytics((prev) => ({
-            ...prev,
-
-            totalPrompts: prev.totalPrompts + 1,
-          }));
           storage.set({ pp_history: updated });
         } catch (err) {
           console.error('Error saving version:', err);
@@ -938,7 +1113,17 @@ export default function App() {
   }
 
   if (screen === 'settings')
-    return <SettingsScreen onBack={() => setScreen('main')} />;
+    return (
+      <SettingsScreen
+        onBack={() => setScreen('main')}
+        onPromptsImported={(updatedPrompts) => {
+          setPrompts(updatedPrompts || []);
+          storage.get(['pp_history']).then(({ pp_history }) => {
+            setHistory(pp_history || []);
+          });
+        }}
+      />
+    );
 
   if (screen === 'score')
     return (
