@@ -197,6 +197,7 @@ async function callGemini(sys, userMsg, apiKey) {
       }
     );
     await assertOK(res, 'Gemini');
+    const d = await res.json();
     const text = d?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!text.trim()) {
       throw new Error('Empty Response: AI returned empty response. Try rephrasing your prompt.');
