@@ -629,6 +629,16 @@ function HistoryScreen({ history, onSelect, onClear, onBack, searchQuery, setSea
   );
 }
 
+// ─── Prompt counter ─────────────────────────────────────────────────────────
+
+function getCounterState(len) {
+  if (len === 0) return { color: 'var(--text-ultra-faint)', label: '' };
+  if (len < 20)  return { color: '#f87171', label: 'Too Short' };
+  if (len < 300) return { color: '#fbbf24', label: 'Okay' };
+  if (len < 1500) return { color: '#34d399', label: 'Good' };
+  return { color: '#fb923c', label: 'Long' };
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -1193,6 +1203,26 @@ export default function App() {
               {showEx ? '▲ hide examples' : '▼ quick examples'}
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {/* Live counter */}
+              {(() => {
+                const len = input.length;
+                const { color, label } = getCounterState(len);
+                return (
+                  <span
+                    title={label || 'Prompt length'}
+                    style={{
+                      fontSize: 9,
+                      color,
+                      transition: 'color 0.25s',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {len === 0
+                      ? '0 chars · ~0 tokens'
+                      : `${len} chars · ~${Math.ceil(len / 4)} tokens${label ? ` · ${label}` : ''}`}
+                  </span>
+                );
+              })()}
               {input.trim().length > 3 && (
                 <button
                   onClick={() => {
