@@ -202,20 +202,32 @@ function Label({ children, sub }) {
 function SettingsScreen({ onBack, onPromptsImported }) {
   const [provider, setProvider] = useState('gemini');
   const [key, setKey] = useState('');
+  const [role, setRole] = useState('');
+  const [stack, setStack] = useState('');
+  const [rules, setRules] = useState('');
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    storage.get(['pp_key', 'pp_provider']).then(({ pp_key, pp_provider }) => {
+    storage.get(['pp_key', 'pp_provider', 'pp_profile_role', 'pp_profile_stack', 'pp_profile_rules']).then(({ pp_key, pp_provider, pp_profile_role, pp_profile_stack, pp_profile_rules }) => {
       if (pp_key) setKey(pp_key);
       if (pp_provider) setProvider(pp_provider);
+      if (pp_profile_role) setRole(pp_profile_role);
+      if (pp_profile_stack) setStack(pp_profile_stack);
+      if (pp_profile_rules) setRules(pp_profile_rules);
     });
   }, []);
 
   async function handleSave() {
-    await storage.set({ pp_key: key.trim(), pp_provider: provider });
+    await storage.set({ 
+      pp_key: key.trim(), 
+      pp_provider: provider,
+      pp_profile_role: role.trim(),
+      pp_profile_stack: stack.trim(),
+      pp_profile_rules: rules.trim()
+    });
     setSaved(true);
     setTimeout(() => {
       setSaved(false);
@@ -396,6 +408,88 @@ function SettingsScreen({ onBack, onPromptsImported }) {
           Stored in your browser only. Never sent anywhere except the selected
           provider.
         </p>
+      </div>
+
+      {/* Personal AI Profile */}
+      <div
+        style={{
+          padding: '12px 14px',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+      >
+        <div>
+          <Label>Your Role</Label>
+          <input
+            type="text"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            placeholder="e.g. Senior Frontend Engineer"
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 8,
+              background: 'var(--input-bg)',
+              border: '1.5px solid var(--border-color)',
+              color: 'var(--text-primary)',
+              fontSize: 12,
+              outline: 'none',
+              transition: 'border-color 0.18s',
+            }}
+            onFocus={(e) => (e.target.style.borderColor = 'var(--border-focus)')}
+            onBlur={(e) => (e.target.style.borderColor = 'var(--border-color)')}
+          />
+        </div>
+        <div>
+          <Label>Tech Stack</Label>
+          <input
+            type="text"
+            value={stack}
+            onChange={(e) => setStack(e.target.value)}
+            placeholder="e.g. React, TypeScript, Tailwind"
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 8,
+              background: 'var(--input-bg)',
+              border: '1.5px solid var(--border-color)',
+              color: 'var(--text-primary)',
+              fontSize: 12,
+              outline: 'none',
+              transition: 'border-color 0.18s',
+            }}
+            onFocus={(e) => (e.target.style.borderColor = 'var(--border-focus)')}
+            onBlur={(e) => (e.target.style.borderColor = 'var(--border-color)')}
+          />
+        </div>
+        <div>
+          <Label>Coding Rules & Preferences</Label>
+          <textarea
+            value={rules}
+            onChange={(e) => setRules(e.target.value)}
+            placeholder="e.g. Always use functional components, prefer early returns, write accessible code."
+            style={{
+              width: '100%',
+              minHeight: '60px',
+              padding: '8px 10px',
+              borderRadius: 8,
+              background: 'var(--input-bg)',
+              border: '1.5px solid var(--border-color)',
+              color: 'var(--text-primary)',
+              fontSize: 12,
+              outline: 'none',
+              resize: 'vertical',
+              fontFamily: 'inherit',
+              transition: 'border-color 0.18s',
+            }}
+            onFocus={(e) => (e.target.style.borderColor = 'var(--border-focus)')}
+            onBlur={(e) => (e.target.style.borderColor = 'var(--border-color)')}
+          />
+        </div>
       </div>
 
       <button

@@ -519,8 +519,8 @@
     // Enhance button
     $('__pp_forge_btn').addEventListener('click', () => {
       chrome.storage.local.get(
-        ['pp_key', 'pp_provider'],
-        async ({ pp_key, pp_provider }) => {
+        ['pp_key', 'pp_provider', 'pp_profile_role', 'pp_profile_stack', 'pp_profile_rules'],
+        async ({ pp_key, pp_provider, pp_profile_role, pp_profile_stack, pp_profile_rules }) => {
           if (!pp_key) {
             $('__pp_nokey').style.display = 'flex';
             return;
@@ -541,6 +541,9 @@
               mode,
               provider: pp_provider || 'gemini',
               apiKey: pp_key,
+              profileRole: pp_profile_role,
+              profileStack: pp_profile_stack,
+              profileRules: pp_profile_rules,
             },
             async (res) => {
               $('__pp_loading').style.display = 'none';
