@@ -832,6 +832,49 @@ export default function App() {
   const [typeDone, setTypeDone] = useState(true);
   const [theme, setTheme] = useState('dark');
   const abortRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleFiles = useCallback((files) => {
+    if (!files || files.length === 0) return;
+    
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        setInput(prev => {
+          const separator = prev.trim() ? '\n\n' : '';
+          return `${prev}${separator}--- File: ${file.name} ---\n${text}\n--- End of ${file.name} ---\n`;
+        });
+      };
+      reader.onerror = (err) => {
+        setError(`Failed to read file ${file.name}`);
+        console.error('File read error:', err);
+      };
+      reader.readAsText(file);
+    });
+  }, []);
+
+  const onDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+  
+  const onDragLeave = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const onDrop = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFiles(e.dataTransfer.files);
+    }
+  }, [handleFiles]);
   
 
   // Theme initialization
@@ -1334,7 +1377,40 @@ export default function App() {
         {/* Input */}
         <div>
           <Label>Your Prompt</Label>
-          <textarea
+          <div
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            style={{
+              position: 'relative',
+              borderRadius: 9,
+              transition: 'all 0.2s',
+              border: isDragging ? '2px dashed var(--accent-light)' : 'none',
+              padding: isDragging ? 2 : 0,
+              background: isDragging ? 'rgba(124,58,237,0.1)' : 'transparent',
+            }}
+          >
+            {isDragging && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'rgba(0,0,0,0.4)',
+                  color: 'white',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  borderRadius: 9,
+                  zIndex: 10,
+                  pointerEvents: 'none'
+                }}
+              >
+                Drop files to append as context
+              </div>
+            )}
+            <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -1367,6 +1443,7 @@ export default function App() {
               (e.target.style.borderColor = 'var(--border-color)')
             }
           />
+          </div>
           <div
             style={{
               display: 'flex',
@@ -1388,6 +1465,33 @@ export default function App() {
               {showEx ? '▲ hide examples' : '▼ quick examples'}
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="file"
+                multiple
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                onChange={(e) => handleFiles(e.target.files)}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach Files"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: 'var(--text-muted)',
+                  transition: 'color 0.2s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                </svg>
+              </button>
               {/* Live counter */}
               {(() => {
                 const len = input.length;
