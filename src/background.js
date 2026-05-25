@@ -200,12 +200,16 @@ async function callGemini(sys, userMsg, apiKey) {
     const d = await res.json();
     const text = d?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!text.trim()) {
-      throw new Error('Empty Response: AI returned empty response. Try rephrasing your prompt.');
+      throw new Error(
+        'Empty Response: AI returned empty response. Try rephrasing your prompt.'
+      );
     }
     return text;
   } catch (error) {
     if (error.message.includes('fetch')) {
-      throw new Error('Network Error: Can\'t reach Gemini. Check your internet connection.');
+      throw new Error(
+        "Network Error: Can't reach Gemini. Check your internet connection."
+      );
     }
     throw error;
   }
@@ -233,12 +237,16 @@ async function callGroq(sys, userMsg, apiKey) {
     const d = await res.json();
     const text = d?.choices?.[0]?.message?.content || '';
     if (!text.trim()) {
-      throw new Error('Empty Response: AI returned empty response. Try rephrasing your prompt.');
+      throw new Error(
+        'Empty Response: AI returned empty response. Try rephrasing your prompt.'
+      );
     }
     return text;
   } catch (error) {
     if (error.message.includes('fetch')) {
-      throw new Error('Network Error: Can\'t reach Groq. Check your internet connection.');
+      throw new Error(
+        "Network Error: Can't reach Groq. Check your internet connection."
+      );
     }
     throw error;
   }
@@ -266,12 +274,16 @@ async function callOpenAI(sys, userMsg, apiKey) {
     const d = await res.json();
     const text = d?.choices?.[0]?.message?.content || '';
     if (!text.trim()) {
-      throw new Error('Empty Response: AI returned empty response. Try rephrasing your prompt.');
+      throw new Error(
+        'Empty Response: AI returned empty response. Try rephrasing your prompt.'
+      );
     }
     return text;
   } catch (error) {
     if (error.message.includes('fetch')) {
-      throw new Error('Network Error: Can\'t reach OpenAI. Check your internet connection.');
+      throw new Error(
+        "Network Error: Can't reach OpenAI. Check your internet connection."
+      );
     }
     throw error;
   }
@@ -288,13 +300,19 @@ async function assertOK(res, provider) {
     const providerLinks = {
       Gemini: 'aistudio.google.com',
       Groq: 'console.groq.com',
-      OpenAI: 'platform.openai.com'
+      OpenAI: 'platform.openai.com',
     };
-    throw new Error(`Invalid API Key: Your ${provider} key is incorrect. Go to Settings → re-copy from ${providerLinks[provider] || provider.toLowerCase() + '.com'}.`);
+    throw new Error(
+      `Invalid API Key: Your ${provider} key is incorrect. Go to Settings → re-copy from ${providerLinks[provider] || provider.toLowerCase() + '.com'}.`
+    );
   }
   if (res.status === 429)
-    throw new Error(`Rate Limit Exceeded: You've hit the rate limit. Wait 60 seconds and try again.`);
+    throw new Error(
+      `Rate Limit Exceeded: You've hit the rate limit. Wait 60 seconds and try again.`
+    );
   if (res.status >= 500)
-    throw new Error(`Network Error: Can't reach ${provider}. Check your internet connection.`);
+    throw new Error(
+      `Network Error: Can't reach ${provider}. Check your internet connection.`
+    );
   throw new Error(`API Error: ${msg}`);
 }

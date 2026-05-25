@@ -32,7 +32,7 @@ export async function saveScore(entry) {
  * @returns {Promise<Object[]>}
  */
 export async function getHistory() {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     chrome.storage.local.get([STORAGE_KEY], (result) => {
       resolve(result[STORAGE_KEY] || []);
     });
@@ -57,7 +57,7 @@ export async function getDimensionTrend(dimensionId, limit = 20) {
   const history = await getHistory();
   return history
     .slice(0, limit)
-    .map(h => h.scores?.[dimensionId]?.score || 0)
+    .map((h) => h.scores?.[dimensionId]?.score || 0)
     .reverse(); // oldest → newest
 }
 
@@ -70,7 +70,7 @@ export async function getOverallTrend(limit = 20) {
   const history = await getHistory();
   return history
     .slice(0, limit)
-    .map(h => h.overall || 0)
+    .map((h) => h.overall || 0)
     .reverse();
 }
 
@@ -108,19 +108,23 @@ export async function getSessionStats() {
   }
 
   const total = history.length;
-  const avgScore = Math.round(history.reduce((sum, h) => sum + (h.overall || 0), 0) / total);
+  const avgScore = Math.round(
+    history.reduce((sum, h) => sum + (h.overall || 0), 0) / total
+  );
   const gradeOrder = ['S', 'A', 'B', 'C', 'D', 'F'];
   const bestGrade = history.reduce((best, h) => {
     const idx = gradeOrder.indexOf(h.grade || 'F');
     const bestIdx = gradeOrder.indexOf(best);
-    return idx < bestIdx ? (h.grade || 'F') : best;
+    return idx < bestIdx ? h.grade || 'F' : best;
   }, 'F');
 
   // Trend: compare last 5 vs previous 5
   let trend = 'stable';
   if (history.length >= 6) {
-    const recent = history.slice(0, 3).reduce((s, h) => s + (h.overall || 0), 0) / 3;
-    const older = history.slice(3, 6).reduce((s, h) => s + (h.overall || 0), 0) / 3;
+    const recent =
+      history.slice(0, 3).reduce((s, h) => s + (h.overall || 0), 0) / 3;
+    const older =
+      history.slice(3, 6).reduce((s, h) => s + (h.overall || 0), 0) / 3;
     if (recent > older + 5) trend = 'improving';
     else if (recent < older - 5) trend = 'declining';
   }

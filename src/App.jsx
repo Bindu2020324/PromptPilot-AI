@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { versioningService } from './versioningService';
-import { PromptsList, VersionHistoryPanel, DiffView } from './historyComponents';
+import {
+  PromptsList,
+  VersionHistoryPanel,
+  DiffView,
+} from './historyComponents';
 import ScorePanel, { MiniScoreBadge } from './components/ScorePanel';
 import ScoreTrends from './components/ScoreTrends';
 import { scorePrompt } from './scoring/PromptScorer';
@@ -169,7 +173,11 @@ function Label({ children, sub }) {
       </span>
       {sub && (
         <span
-          style={{ fontSize: 9, color: 'var(--text-very-faint)', marginLeft: 5 }}
+          style={{
+            fontSize: 9,
+            color: 'var(--text-very-faint)',
+            marginLeft: 5,
+          }}
         >
           {sub}
         </span>
@@ -244,15 +252,16 @@ function SettingsScreen({ onBack }) {
                 borderRadius: 10,
                 border: '1.5px solid var(--border-color)',
                 textAlign: 'left',
-                background: provider === p.id
-                  ? 'var(--bg-active)'
-                  : 'var(--bg-tertiary)',
-                color: provider === p.id
-                  ? 'var(--text-secondary)'
-                  : 'var(--text-tertiary)',
-                borderColor: provider === p.id
-                  ? 'var(--border-focus)'
-                  : 'var(--border-color)',
+                background:
+                  provider === p.id ? 'var(--bg-active)' : 'var(--bg-tertiary)',
+                color:
+                  provider === p.id
+                    ? 'var(--text-secondary)'
+                    : 'var(--text-tertiary)',
+                borderColor:
+                  provider === p.id
+                    ? 'var(--border-focus)'
+                    : 'var(--border-color)',
                 transition: 'all 0.15s',
               }}
             >
@@ -261,7 +270,9 @@ function SettingsScreen({ onBack }) {
                   fontSize: 12,
                   fontWeight: 600,
                   color:
-                    provider === p.id ? 'var(--accent-light)' : 'var(--text-secondary)',
+                    provider === p.id
+                      ? 'var(--accent-light)'
+                      : 'var(--text-secondary)',
                   marginBottom: 2,
                 }}
               >
@@ -295,12 +306,8 @@ function SettingsScreen({ onBack }) {
             outline: 'none',
             transition: 'border-color 0.18s',
           }}
-          onFocus={(e) =>
-            (e.target.style.borderColor = 'var(--border-focus)')
-          }
-          onBlur={(e) =>
-            (e.target.style.borderColor = 'var(--border-color)')
-          }
+          onFocus={(e) => (e.target.style.borderColor = 'var(--border-focus)')}
+          onBlur={(e) => (e.target.style.borderColor = 'var(--border-color)')}
         />
         <p
           style={{
@@ -373,25 +380,24 @@ function SettingsScreen({ onBack }) {
   );
 }
 
-
 function AnalyticsScreen({ analytics, onBack }) {
   return (
-    <div style={{ padding: 20, color: "white" }}>
+    <div style={{ padding: 20, color: 'white' }}>
       <button onClick={onBack}>← Back</button>
 
       <h1>Prompt Analytics</h1>
 
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))',
           gap: 16,
           marginTop: 20,
         }}
       >
         <div
           style={{
-            background: "#1e1e2f",
+            background: '#1e1e2f',
             padding: 20,
             borderRadius: 12,
           }}
@@ -402,7 +408,7 @@ function AnalyticsScreen({ analytics, onBack }) {
 
         <div
           style={{
-            background: "#1e1e2f",
+            background: '#1e1e2f',
             padding: 20,
             borderRadius: 12,
           }}
@@ -417,16 +423,30 @@ function AnalyticsScreen({ analytics, onBack }) {
 
 // ─── History screen ───────────────────────────────────────────────────────────
 
-function HistoryScreen({ history, onSelect, onClear, onBack, searchQuery, setSearchQuery, showFavoritesOnly, setShowFavoritesOnly, toggleFavorite }) {
+function HistoryScreen({
+  prompts,
+  onSelect,
+  onSelectPrompt,
+  onClear,
+  onBack,
+  searchQuery,
+  setSearchQuery,
+  showFavoritesOnly,
+  setShowFavoritesOnly,
+  toggleFavorite,
+  onExportJSON,
+  onExportMD,
+}) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Header */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '13px 16px',
-          border: '1px solid var(--border-color)',
+          borderBottom: '1px solid var(--border-color)',
           flexShrink: 0,
         }}
       >
@@ -439,6 +459,7 @@ function HistoryScreen({ history, onSelect, onClear, onBack, searchQuery, setSea
               color: 'var(--text-muted)',
               fontSize: 18,
               padding: 0,
+              cursor: 'pointer',
             }}
           >
             ←
@@ -454,26 +475,82 @@ function HistoryScreen({ history, onSelect, onClear, onBack, searchQuery, setSea
               borderRadius: 20,
             }}
           >
-            {history.length}
+            {prompts.length}
           </span>
         </div>
-        {history.length > 0 && (
-          <button
-            onClick={onClear}
-            style={{
-              background: 'none',
-              border: '1px solid rgba(239,68,68,0.25)',
-              borderRadius: 7,
-              padding: '3px 10px',
-              fontSize: 11,
-              color: 'var(--accent-red)',
-            }}
-          >
-            Clear all
-          </button>
+        {prompts.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button
+              onClick={onExportJSON}
+              title="Export history as JSON"
+              style={{
+                background: 'none',
+                border: '1px solid var(--border-color)',
+                borderRadius: 7,
+                padding: '3px 8px',
+                fontSize: 11,
+                color: 'var(--text-secondary)',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-hover)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-color)';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
+            >
+              Export JSON
+            </button>
+            <button
+              onClick={onExportMD}
+              title="Export history as Markdown"
+              style={{
+                background: 'none',
+                border: '1px solid var(--border-color)',
+                borderRadius: 7,
+                padding: '3px 8px',
+                fontSize: 11,
+                color: 'var(--text-secondary)',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-hover)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-color)';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
+            >
+              Export MD
+            </button>
+            <button
+              onClick={onClear}
+              style={{
+                background: 'none',
+                border: '1px solid rgba(239,68,68,0.25)',
+                borderRadius: 7,
+                padding: '3px 8px',
+                fontSize: 11,
+                color: 'var(--accent-red)',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(239,68,68,0.08)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'none';
+              }}
+            >
+              Clear all
+            </button>
+          </div>
         )}
       </div>
 
+      {/* Filters */}
       <div style={{ padding: '10px 12px', display: 'flex', gap: 8 }}>
         <input
           type="text"
@@ -488,6 +565,7 @@ function HistoryScreen({ history, onSelect, onClear, onBack, searchQuery, setSea
             background: 'var(--bg-tertiary)',
             color: 'var(--text-primary)',
             fontSize: 12,
+            outline: 'none',
           }}
         />
 
@@ -502,12 +580,14 @@ function HistoryScreen({ history, onSelect, onClear, onBack, searchQuery, setSea
               : 'var(--bg-tertiary)',
             color: '#facc15',
             fontSize: 12,
+            cursor: 'pointer',
           }}
         >
           ⭐
         </button>
       </div>
 
+      {/* List */}
       <div
         style={{
           flex: 1,
@@ -518,7 +598,7 @@ function HistoryScreen({ history, onSelect, onClear, onBack, searchQuery, setSea
           gap: 7,
         }}
       >
-        {history.length === 0 ? (
+        {prompts.length === 0 ? (
           <div
             style={{
               textAlign: 'center',
@@ -533,96 +613,152 @@ function HistoryScreen({ history, onSelect, onClear, onBack, searchQuery, setSea
             Enhance some prompts first.
           </div>
         ) : (
-          history
-            .filter((item) => {
+          (() => {
+            const filtered = prompts.filter((prompt) => {
+              const latestVersion = prompt.versions?.[0] || {};
               const matchesSearch =
-                item.original
+                prompt.original_text
+                  ?.toLowerCase()
+                  .includes(searchQuery.toLowerCase()) ||
+                latestVersion.enhanced_prompt
                   ?.toLowerCase()
                   .includes(searchQuery.toLowerCase());
 
-              const matchesFavorite =
-                !showFavoritesOnly || item.favorite;
+              const matchesFavorite = !showFavoritesOnly || prompt.favorite;
 
               return matchesSearch && matchesFavorite;
-            })
-            .map((item, i) => (
-            <button
-              key={i}
-              onClick={() => onSelect(item)}
-              style={{
-                background: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: 10,
-                padding: '10px 12px',
-                textAlign: 'left',
-                width: '100%',
-                transition: 'background 0.15s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--text-primary)';
-                e.currentTarget.style.borderColor = 'var(--border-hover)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'var(--text-secondary)';
-                e.currentTarget.style.borderColor = 'var(--border-color)';
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  marginBottom: 4,
-                }}
-              >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleFavorite(item.ts);
-                  }}
+            });
+
+            if (filtered.length === 0) {
+              return (
+                <div
                   style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: 14,
-                    color: item.favorite ? '#facc15' : '#666',
+                    textAlign: 'center',
+                    color: 'var(--text-faint)',
+                    fontSize: 12,
+                    marginTop: 48,
                   }}
                 >
-                  {item.favorite ? '★' : '☆'}
-                </button>
-              </div>
+                  No matching prompts found.
+                </div>
+              );
+            }
 
-              <div
-                style={{
-                  fontSize: 10,
-                  color: 'var(--text-faint)',
-                  marginBottom: 3,
-                }}
-              >
-                {item.domain_detected || '—'} · {item.mode} ·{' '}
-                {new Date(item.ts).toLocaleDateString()}
-              </div>
-              <div
-                style={{
-                  fontSize: 12,
-                  color: 'var(--text-secondary)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  marginBottom: 5,
-                }}
-              >
-                {item.original}
-              </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <span style={{ fontSize: 10, color: '#a78bfa' }}>
-                  Clarity {item.clarity_score}
-                </span>
-                <span style={{ fontSize: 10, color: '#34d399' }}>
-                  Quality {item.quality_score}
-                </span>
-              </div>
-            </button>
-          ))
+            return filtered.map((prompt) => {
+              const latestVersion = prompt.versions?.[0] || {};
+              return (
+                <button
+                  key={prompt.id}
+                  onClick={() => onSelect(prompt)}
+                  style={{
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 10,
+                    padding: '10px 12px',
+                    textAlign: 'left',
+                    width: '100%',
+                    transition: 'all 0.15s',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-hover)';
+                    e.currentTarget.style.background = 'var(--bg-hover)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                    e.currentTarget.style.background = 'var(--bg-tertiary)';
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: 4,
+                    }}
+                  >
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectPrompt(prompt);
+                      }}
+                      title="Click to view version history"
+                      style={{
+                        fontSize: 9,
+                        color: '#a78bfa',
+                        background: 'rgba(124,58,237,0.12)',
+                        border: '1px solid rgba(124,58,237,0.3)',
+                        padding: '2px 6px',
+                        borderRadius: 6,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background =
+                          'rgba(124,58,237,0.22)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background =
+                          'rgba(124,58,237,0.12)';
+                      }}
+                    >
+                      {prompt.versions.length} version
+                      {prompt.versions.length !== 1 ? 's' : ''} ↗
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(prompt.id);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: 14,
+                        color: prompt.favorite ? '#facc15' : '#666',
+                        padding: 0,
+                      }}
+                    >
+                      {prompt.favorite ? '★' : '☆'}
+                    </button>
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: 'var(--text-faint)',
+                      marginBottom: 3,
+                    }}
+                  >
+                    {latestVersion.domain_detected || prompt.domain || '—'} ·{' '}
+                    {prompt.mode} ·{' '}
+                    {new Date(prompt.updated_at).toLocaleDateString()}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: 'var(--text-secondary)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      marginBottom: 5,
+                    }}
+                  >
+                    {prompt.original_text}
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <span style={{ fontSize: 10, color: '#a78bfa' }}>
+                      Clarity {latestVersion.clarity_score}
+                    </span>
+                    <span style={{ fontSize: 10, color: '#34d399' }}>
+                      Quality {latestVersion.quality_score}
+                    </span>
+                  </div>
+                </button>
+              );
+            });
+          })()
         )}
       </div>
     </div>
@@ -633,7 +769,7 @@ function HistoryScreen({ history, onSelect, onClear, onBack, searchQuery, setSea
 
 function getCounterState(len) {
   if (len === 0) return { color: 'var(--text-ultra-faint)', label: '' };
-  if (len < 20)  return { color: '#f87171', label: 'Too Short' };
+  if (len < 20) return { color: '#f87171', label: 'Too Short' };
   if (len < 300) return { color: '#fbbf24', label: 'Okay' };
   if (len < 1500) return { color: '#34d399', label: 'Good' };
   return { color: '#fb923c', label: 'Long' };
@@ -644,16 +780,13 @@ function getCounterState(len) {
 export default function App() {
   const [screen, setScreen] = useState('main');
   const [history, setHistory] = useState([]);
- feature/prompt-analytics-dashboard
   const [analytics, setAnalytics] = useState({
     totalPrompts: 0,
     favorites: 0,
     categories: {},
   });
-=======
   const [searchQuery, setSearchQuery] = useState('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
- main
   const [prompts, setPrompts] = useState([]);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
   const [compareVersion, setCompareVersion] = useState(null);
@@ -670,7 +803,6 @@ export default function App() {
   const [typeDone, setTypeDone] = useState(true);
   const [theme, setTheme] = useState('dark');
   const abortRef = useRef(null);
-  
 
   // Theme initialization
   useEffect(() => {
@@ -719,7 +851,7 @@ export default function App() {
       await versioningService.migrateFromLegacy();
       const allPrompts = await versioningService.getAllPrompts();
       setPrompts(allPrompts);
-      
+
       // Fallback: also load legacy history for backward compatibility
       storage.get(['pp_history']).then(({ pp_history }) => {
         if (pp_history) setHistory(pp_history);
@@ -779,7 +911,10 @@ export default function App() {
       async (res) => {
         setLoading(false);
         if (!res?.ok) {
-          setError(res?.error || 'Unexpected Error: Something went wrong. Please try again.');
+          setError(
+            res?.error ||
+              'Unexpected Error: Something went wrong. Please try again.'
+          );
           return;
         }
         const r = res.data;
@@ -791,23 +926,33 @@ export default function App() {
           let updatedPrompt;
           // Check if we have an existing prompt to version or create new
           const existingPrompts = await versioningService.getAllPrompts();
-          const matchingPrompt = existingPrompts.find(p => p.original_text === input.trim());
-          
+          const matchingPrompt = existingPrompts.find(
+            (p) => p.original_text === input.trim()
+          );
+
           if (matchingPrompt) {
             // Add new version to existing prompt
-            updatedPrompt = await versioningService.addVersion(matchingPrompt.id, r, {
-              domain,
-              mode,
-              provider: pp_provider || 'gemini',
-              change_note: 'Re-enhanced with same prompt',
-            });
+            updatedPrompt = await versioningService.addVersion(
+              matchingPrompt.id,
+              r,
+              {
+                domain,
+                mode,
+                provider: pp_provider || 'gemini',
+                change_note: 'Re-enhanced with same prompt',
+              }
+            );
           } else {
             // Create new prompt with first version
-            updatedPrompt = await versioningService.createPrompt(input.trim(), r, {
-              domain,
-              mode,
-              provider: pp_provider || 'gemini',
-            });
+            updatedPrompt = await versioningService.createPrompt(
+              input.trim(),
+              r,
+              {
+                domain,
+                mode,
+                provider: pp_provider || 'gemini',
+              }
+            );
           }
 
           // Refresh prompts list
@@ -866,22 +1011,21 @@ export default function App() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  function toggleFavorite(ts) {
-    const updated = history.map((item) =>
-      item.ts === ts
-        ? { ...item, favorite: !item.favorite }
-        : item
+  async function toggleFavorite(promptId) {
+    const updated = prompts.map((p) =>
+      p.id === promptId ? { ...p, favorite: !p.favorite } : p
     );
-
-    setHistory(updated);
-    storage.set({ pp_history: updated });
+    setPrompts(updated);
+    await storage.set({ pp_prompts: updated });
   }
 
-  function handleHistorySelect(item) {
-    setInput(item.original);
-    setResult(item);
-    setMode(item.mode || 'technical');
-    setDomain(item.domain || '');
+  function handleHistorySelect(prompt) {
+    const latestVersion = prompt.versions?.[0];
+    if (!latestVersion) return;
+    setInput(prompt.original_text);
+    setResult(latestVersion);
+    setMode(prompt.mode || 'technical');
+    setDomain(prompt.domain || '');
     setScreen('main');
   }
 
@@ -895,10 +1039,82 @@ export default function App() {
     })();
   }
 
+  const handleExportJSON = () => {
+    try {
+      const dataStr = JSON.stringify(prompts, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      a.download = `promptpilot-history-${timestamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export JSON:', err);
+    }
+  };
+
+  const handleExportMarkdown = () => {
+    try {
+      let md = `# PromptPilot AI - Exported Prompt History\n`;
+      md += `Exported on: ${new Date().toLocaleString()}\n`;
+      md += `Total Prompts: ${prompts.length}\n\n`;
+      md += `---\n\n`;
+
+      prompts.forEach((prompt, idx) => {
+        md += `## ${idx + 1}. ${prompt.original_text.slice(0, 50)}${prompt.original_text.length > 50 ? '...' : ''}\n\n`;
+        md += `- **Original Prompt:** ${prompt.original_text}\n`;
+        md += `- **Domain:** ${prompt.domain || 'General'}\n`;
+        md += `- **Mode:** ${prompt.mode}\n`;
+        md += `- **Status:** ${prompt.favorite ? '⭐ Favorite' : 'Standard'}\n`;
+        md += `- **Created:** ${new Date(prompt.created_at).toLocaleString()}\n`;
+        md += `- **Last Updated:** ${new Date(prompt.updated_at).toLocaleString()}\n\n`;
+
+        md += `### Version History\n\n`;
+
+        prompt.versions.forEach((ver) => {
+          md += `#### Version ${ver.version_number}${ver.version_number === prompt.versions[0].version_number ? ' (Latest)' : ''}\n`;
+          md += `- **Created At:** ${new Date(ver.created_at).toLocaleString()}\n`;
+          md += `- **AI Provider:** ${ver.provider || 'Gemini'} (${ver.model || 'gemini-pro'})\n`;
+          md += `- **Scores:** Clarity: ${ver.clarity_score} | Specificity: ${ver.specificity_score} | Quality: ${ver.quality_score}\n`;
+          if (ver.change_note) {
+            md += `- **Change Note:** *${ver.change_note}*\n`;
+          }
+          if (ver.transformation_insight) {
+            md += `- **Insight:** ${ver.transformation_insight}\n`;
+          }
+          md += `\n**Enhanced Prompt:**\n\n`;
+          md += `\`\`\`\n${ver.enhanced_prompt}\n\`\`\`\n\n`;
+        });
+
+        md += `---\n\n`;
+      });
+
+      const blob = new Blob([md], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      a.download = `promptpilot-history-${timestamp}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export Markdown:', err);
+    }
+  };
+
   async function handleRestoreVersion(promptId, versionNumber) {
     if (!window.confirm(`Restore to version ${versionNumber}?`)) return;
     try {
-      const restoredPrompt = await versioningService.restoreVersion(promptId, versionNumber);
+      const restoredPrompt = await versioningService.restoreVersion(
+        promptId,
+        versionNumber
+      );
       const allPrompts = await versioningService.getAllPrompts();
       setPrompts(allPrompts);
       setCompareVersion(null);
@@ -962,19 +1178,27 @@ export default function App() {
   if (screen === 'score-trends')
     return <ScoreTrends onBack={() => setScreen('main')} />;
 
-  if (screen === "analytics")
+  if (screen === 'analytics')
     return (
       <AnalyticsScreen
-        analytics={analytics}
-        onBack={() => setScreen("main")}
+        analytics={{
+          totalPrompts: prompts.length,
+          favorites: prompts.filter((p) => p.favorite).length,
+          categories: {},
+        }}
+        onBack={() => setScreen('main')}
       />
     );
-  
+
   if (screen === 'history')
     return (
       <HistoryScreen
-        history={history}
+        prompts={prompts}
         onSelect={handleHistorySelect}
+        onSelectPrompt={(prompt) => {
+          setSelectedPrompt(prompt);
+          setScreen('version-history');
+        }}
         onClear={handleClearHistory}
         onBack={() => setScreen('main')}
         searchQuery={searchQuery}
@@ -982,6 +1206,8 @@ export default function App() {
         showFavoritesOnly={showFavoritesOnly}
         setShowFavoritesOnly={setShowFavoritesOnly}
         toggleFavorite={toggleFavorite}
+        onExportJSON={handleExportJSON}
+        onExportMD={handleExportMarkdown}
       />
     );
 
@@ -1005,7 +1231,9 @@ export default function App() {
 
   if (screen === 'version-compare' && selectedPrompt && compareVersion) {
     const latestVersion = selectedPrompt.versions?.[0];
-    const comparedVersion = selectedPrompt.versions?.find(v => v.version_number === compareVersion);
+    const comparedVersion = selectedPrompt.versions?.find(
+      (v) => v.version_number === compareVersion
+    );
     if (!latestVersion || !comparedVersion) {
       return <div>Version not found</div>;
     }
@@ -1178,9 +1406,7 @@ export default function App() {
             onFocus={(e) =>
               (e.target.style.borderColor = 'var(--border-focus)')
             }
-            onBlur={(e) =>
-              (e.target.style.borderColor = 'var(--border-color)')
-            }
+            onBlur={(e) => (e.target.style.borderColor = 'var(--border-color)')}
           />
           <div
             style={{
@@ -1237,8 +1463,12 @@ export default function App() {
                     setScreen('score');
                   }}
                   style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    padding: 0, display: 'flex', alignItems: 'center',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0,
+                    display: 'flex',
+                    alignItems: 'center',
                   }}
                   title="View detailed prompt score"
                 >
@@ -1318,32 +1548,32 @@ export default function App() {
         </div>
 
         {/* Error */}
-        {error && (() => {
-          const parts = error.split(': ');
-          const title = parts.length > 1 ? parts[0] : 'Error';
-          const message = parts.length > 1 ? parts.slice(1).join(': ') : error;
-          return (
-            <div
-              style={{
-                background: 'rgba(239,68,68,0.08)',
-                border: '1px solid rgba(239,68,68,0.28)',
-                borderRadius: 9,
-                padding: '9px 12px',
-                color: '#fca5a5',
-                fontSize: 11.5,
-                lineHeight: 1.55,
-                animation: 'fadeUp 0.2s ease',
-              }}
-            >
-              <div style={{ fontWeight: 600, marginBottom: 2 }}>
-                ⚠ {title}
+        {error &&
+          (() => {
+            const parts = error.split(': ');
+            const title = parts.length > 1 ? parts[0] : 'Error';
+            const message =
+              parts.length > 1 ? parts.slice(1).join(': ') : error;
+            return (
+              <div
+                style={{
+                  background: 'rgba(239,68,68,0.08)',
+                  border: '1px solid rgba(239,68,68,0.28)',
+                  borderRadius: 9,
+                  padding: '9px 12px',
+                  color: '#fca5a5',
+                  fontSize: 11.5,
+                  lineHeight: 1.55,
+                  animation: 'fadeUp 0.2s ease',
+                }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                  ⚠ {title}
+                </div>
+                <div>{message}</div>
               </div>
-              <div>
-                {message}
-              </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
 
         {/* Forge button */}
         <button
