@@ -85,9 +85,18 @@ const DOMAIN_CONTEXT = {
     'You are a world-class prompt engineer. Make prompts specific, structured, and highly actionable for modern LLMs.',
 };
 
-function buildSystemPrompt(domain, mode) {
-  const ctx = DOMAIN_CONTEXT[domain] || DOMAIN_CONTEXT.general;
-  return `${ctx}
+function buildSystemPrompt(domain, mode, profileRole, profileStack, profileRules) {
+  let ctx = DOMAIN_CONTEXT[domain] || DOMAIN_CONTEXT.general;
+  
+  let profileCtx = '';
+  if (profileRole || profileStack || profileRules) {
+    profileCtx = '\n\nUSER PROFILE CONTEXT:\nAlways incorporate this context into the enhanced prompt if relevant.\n';
+    if (profileRole) profileCtx += `- Role: ${profileRole}\n`;
+    if (profileStack) profileCtx += `- Tech Stack: ${profileStack}\n`;
+    if (profileRules) profileCtx += `- Coding Rules & Preferences: ${profileRules}\n`;
+  }
+
+  return `${ctx}${profileCtx}
 
 TASK: Transform the user's weak/vague prompt into a structured expert-level prompt.
 MODE: ${mode || 'technical'}
@@ -147,8 +156,8 @@ JSON schema:
 
 // ── Provider calls ────────────────────────────────────────────────────
 
-async function callAPI({ prompt, domain, mode, provider, apiKey }) {
-  const sys = buildSystemPrompt(domain, mode);
+async function callAPI({ prompt, domain, mode, provider, apiKey, profileRole, profileStack, profileRules }) {
+  const sys = buildSystemPrompt(domain, mode, profileRole, profileStack, profileRules);
   const userMsg = `Enhance this prompt: "${prompt}"`;
   let raw = '';
 

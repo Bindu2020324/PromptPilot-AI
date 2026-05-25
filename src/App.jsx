@@ -78,6 +78,25 @@ const storage = {
   set: (obj) => new Promise((res) => chrome.storage.local.set(obj, res)),
 };
 
+function buildLegacyHistoryFromPrompts(prompts = []) {
+  return (prompts || [])
+    .map((prompt) => {
+      const latest = prompt?.versions?.[0];
+      if (!latest) return null;
+      return {
+        ...latest,
+        original: prompt.original_text,
+        mode: prompt.mode || 'technical',
+        domain: prompt.domain || '',
+        ts: prompt.updated_at || latest.created_at || Date.now(),
+        favorite: false,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (b.ts || 0) - (a.ts || 0))
+    .slice(0, 50);
+}
+
 // ─── Score bar component ──────────────────────────────────────────────────────
 
 function ScoreBar({ label, value, color, bg }) {
@@ -188,25 +207,101 @@ function Label({ children, sub }) {
 
 // ─── Settings screen ──────────────────────────────────────────────────────────
 
-function SettingsScreen({ onBack }) {
+function SettingsScreen({ onBack, onPromptsImported }) {
   const [provider, setProvider] = useState('gemini');
   const [key, setKey] = useState('');
+  const [role, setRole] = useState('');
+  const [stack, setStack] = useState('');
+  const [rules, setRules] = useState('');
   const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
-    storage.get(['pp_key', 'pp_provider']).then(({ pp_key, pp_provider }) => {
+    storage.get(['pp_key', 'pp_provider', 'pp_profile_role', 'pp_profile_stack', 'pp_profile_rules']).then(({ pp_key, pp_provider, pp_profile_role, pp_profile_stack, pp_profile_rules }) => {
       if (pp_key) setKey(pp_key);
       if (pp_provider) setProvider(pp_provider);
+      if (pp_profile_role) setRole(pp_profile_role);
+      if (pp_profile_stack) setStack(pp_profile_stack);
+      if (pp_profile_rules) setRules(pp_profile_rules);
     });
   }, []);
 
   async function handleSave() {
-    await storage.set({ pp_key: key.trim(), pp_provider: provider });
+    await storage.set({ 
+      pp_key: key.trim(), 
+      pp_provider: provider,
+      pp_profile_role: role.trim(),
+      pp_profile_stack: stack.trim(),
+      pp_profile_rules: rules.trim()
+    });
     setSaved(true);
     setTimeout(() => {
       setSaved(false);
       onBack();
     }, 1200);
+  }
+
+  async function handleExportPrompts() {
+    try {
+      setBusy(true);
+      setNotice(null);
+      const payload = await versioningService.exportPrompts();
+      const json = JSON.stringify(payload, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const stamp = new Date().toISOString().slice(0, 10);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `promptpilot-prompts-${stamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setNotice({
+        type: 'success',
+        text: `Exported ${payload.prompt_count} prompt(s).`,
+      });
+    } catch (err) {
+      setNotice({
+        type: 'error',
+        text: `Export failed: ${err?.message || 'Unknown error.'}`,
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleImportFile(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      setBusy(true);
+      setNotice(null);
+      const text = await file.text();
+      const payload = JSON.parse(text);
+      const overwrite = window.confirm(
+        'Import mode:\nOK = overwrite duplicates\nCancel = merge and skip duplicates.'
+      );
+      const result = await versioningService.importPrompts(payload, {
+        mode: overwrite ? 'overwrite' : 'merge',
+      });
+      onPromptsImported?.(result.prompts);
+      setNotice({
+        type: 'success',
+        text: `Imported ${result.imported}/${result.totalInFile}. Added: ${result.added}, Replaced: ${result.replaced}, Skipped: ${result.skipped}.`,
+      });
+    } catch (err) {
+      setNotice({
+        type: 'error',
+        text: `Import failed: ${err?.message || 'Invalid file.'}`,
+      });
+    } finally {
+      setBusy(false);
+    }
   }
 
   const prov = PROVIDERS.find((p) => p.id === provider);
@@ -322,6 +417,88 @@ function SettingsScreen({ onBack }) {
         </p>
       </div>
 
+      {/* Personal AI Profile */}
+      <div
+        style={{
+          padding: '12px 14px',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+      >
+        <div>
+          <Label>Your Role</Label>
+          <input
+            type="text"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            placeholder="e.g. Senior Frontend Engineer"
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 8,
+              background: 'var(--input-bg)',
+              border: '1.5px solid var(--border-color)',
+              color: 'var(--text-primary)',
+              fontSize: 12,
+              outline: 'none',
+              transition: 'border-color 0.18s',
+            }}
+            onFocus={(e) => (e.target.style.borderColor = 'var(--border-focus)')}
+            onBlur={(e) => (e.target.style.borderColor = 'var(--border-color)')}
+          />
+        </div>
+        <div>
+          <Label>Tech Stack</Label>
+          <input
+            type="text"
+            value={stack}
+            onChange={(e) => setStack(e.target.value)}
+            placeholder="e.g. React, TypeScript, Tailwind"
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 8,
+              background: 'var(--input-bg)',
+              border: '1.5px solid var(--border-color)',
+              color: 'var(--text-primary)',
+              fontSize: 12,
+              outline: 'none',
+              transition: 'border-color 0.18s',
+            }}
+            onFocus={(e) => (e.target.style.borderColor = 'var(--border-focus)')}
+            onBlur={(e) => (e.target.style.borderColor = 'var(--border-color)')}
+          />
+        </div>
+        <div>
+          <Label>Coding Rules & Preferences</Label>
+          <textarea
+            value={rules}
+            onChange={(e) => setRules(e.target.value)}
+            placeholder="e.g. Always use functional components, prefer early returns, write accessible code."
+            style={{
+              width: '100%',
+              minHeight: '60px',
+              padding: '8px 10px',
+              borderRadius: 8,
+              background: 'var(--input-bg)',
+              border: '1.5px solid var(--border-color)',
+              color: 'var(--text-primary)',
+              fontSize: 12,
+              outline: 'none',
+              resize: 'vertical',
+              fontFamily: 'inherit',
+              transition: 'border-color 0.18s',
+            }}
+            onFocus={(e) => (e.target.style.borderColor = 'var(--border-focus)')}
+            onBlur={(e) => (e.target.style.borderColor = 'var(--border-color)')}
+          />
+        </div>
+      </div>
+
       <button
         onClick={handleSave}
         style={{
@@ -339,6 +516,82 @@ function SettingsScreen({ onBack }) {
       >
         {saved ? '✓ Saved!' : 'Save Settings'}
       </button>
+
+      <div
+        style={{
+          padding: '12px 14px',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}
+      >
+        <Label>Prompt Backup</Label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={handleExportPrompts}
+            disabled={busy}
+            style={{
+              flex: 1,
+              padding: '9px 10px',
+              borderRadius: 8,
+              border: '1px solid var(--border-color)',
+              background: 'var(--bg-tertiary)',
+              color: 'var(--text-secondary)',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            Export Prompts
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={busy}
+            style={{
+              flex: 1,
+              padding: '9px 10px',
+              borderRadius: 8,
+              border: '1px solid rgba(124,58,237,0.35)',
+              background: 'rgba(124,58,237,0.12)',
+              color: '#c4b5fd',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            Import Prompts
+          </button>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          onChange={handleImportFile}
+          style={{ display: 'none' }}
+        />
+        {notice && (
+          <div
+            style={{
+              fontSize: 11,
+              lineHeight: 1.5,
+              color: notice.type === 'success' ? '#86efac' : '#fca5a5',
+              background:
+                notice.type === 'success'
+                  ? 'rgba(34,197,94,0.1)'
+                  : 'rgba(239,68,68,0.1)',
+              border:
+                notice.type === 'success'
+                  ? '1px solid rgba(34,197,94,0.25)'
+                  : '1px solid rgba(239,68,68,0.25)',
+              padding: '8px 10px',
+              borderRadius: 8,
+            }}
+          >
+            {notice.text}
+          </div>
+        )}
+      </div>
 
       {/* Info */}
       <div
@@ -382,40 +635,46 @@ function SettingsScreen({ onBack }) {
 
 function AnalyticsScreen({ analytics, onBack }) {
   return (
-    <div style={{ padding: 20, color: 'white' }}>
-      <button onClick={onBack}>← Back</button>
-
-      <h1>Prompt Analytics</h1>
-
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))',
-          gap: 16,
-          marginTop: 20,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '13px 16px',
+          borderBottom: '1px solid var(--border-color)',
+          flexShrink: 0,
         }}
       >
-        <div
-          style={{
-            background: '#1e1e2f',
-            padding: 20,
-            borderRadius: 12,
-          }}
+        <button
+          onClick={onBack}
+          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 18, padding: 0 }}
         >
-          <h2>Total Prompts</h2>
-          <p>{analytics.totalPrompts}</p>
-        </div>
+          ←
+        </button>
+        <span style={{ fontSize: 14, fontWeight: 700 }}>Prompt Analytics</span>
+      </div>
 
-        <div
-          style={{
-            background: '#1e1e2f',
-            padding: 20,
-            borderRadius: 12,
-          }}
-        >
-          <h2>Favorites</h2>
-          <p>{analytics.favorites}</p>
-        </div>
+      <div style={{ padding: 16, display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+        {[
+          { label: 'Total Prompts', value: analytics.totalPrompts, color: '#a78bfa' },
+          { label: 'Favorites', value: analytics.favorites, color: '#facc15' },
+        ].map((item) => (
+          <div
+            key={item.label}
+            style={{
+              background: 'var(--bg-tertiary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 12,
+              padding: '14px 16px',
+            }}
+          >
+            <div style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              {item.label}
+            </div>
+            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: item.color }}>{item.value}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -769,7 +1028,7 @@ function HistoryScreen({
 
 function getCounterState(len) {
   if (len === 0) return { color: 'var(--text-ultra-faint)', label: '' };
-  if (len < 20) return { color: '#f87171', label: 'Too Short' };
+  if (len < 20)  return { color: '#f87171', label: 'Too Short' };
   if (len < 300) return { color: '#fbbf24', label: 'Okay' };
   if (len < 1500) return { color: '#34d399', label: 'Good' };
   return { color: '#fb923c', label: 'Long' };
@@ -803,6 +1062,50 @@ export default function App() {
   const [typeDone, setTypeDone] = useState(true);
   const [theme, setTheme] = useState('dark');
   const abortRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleFiles = useCallback((files) => {
+    if (!files || files.length === 0) return;
+    
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        setInput(prev => {
+          const separator = prev.trim() ? '\n\n' : '';
+          return `${prev}${separator}--- File: ${file.name} ---\n${text}\n--- End of ${file.name} ---\n`;
+        });
+      };
+      reader.onerror = (err) => {
+        setError(`Failed to read file ${file.name}`);
+        console.error('File read error:', err);
+      };
+      reader.readAsText(file);
+    });
+  }, []);
+
+  const onDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+  
+  const onDragLeave = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const onDrop = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFiles(e.dataTransfer.files);
+    }
+  }, [handleFiles]);
+  
 
   // Theme initialization
   useEffect(() => {
@@ -852,12 +1155,30 @@ export default function App() {
       const allPrompts = await versioningService.getAllPrompts();
       setPrompts(allPrompts);
 
-      // Fallback: also load legacy history for backward compatibility
-      storage.get(['pp_history']).then(({ pp_history }) => {
-        if (pp_history) setHistory(pp_history);
-      });
+      const derivedHistory = buildLegacyHistoryFromPrompts(allPrompts);
+      if (derivedHistory.length > 0) {
+        setHistory(derivedHistory);
+        storage.set({ pp_history: derivedHistory });
+      } else {
+        storage.get(['pp_history']).then(({ pp_history }) => {
+          setHistory(pp_history || []);
+        });
+      }
     })();
   }, []);
+
+  useEffect(() => {
+    const categories = {};
+    history.forEach((item) => {
+      const key = item.domain_detected || item.domain || 'General';
+      categories[key] = (categories[key] || 0) + 1;
+    });
+    setAnalytics({
+      totalPrompts: prompts.length || history.length,
+      favorites: history.filter((item) => item.favorite).length,
+      categories,
+    });
+  }, [prompts, history]);
 
   // Typing animation
   useEffect(() => {
@@ -984,11 +1305,6 @@ export default function App() {
           };
           const updated = [entry, ...history.slice(0, 49)];
           setHistory(updated);
-          setAnalytics((prev) => ({
-            ...prev,
-
-            totalPrompts: prev.totalPrompts + 1,
-          }));
           storage.set({ pp_history: updated });
         } catch (err) {
           console.error('Error saving version:', err);
@@ -1164,7 +1480,17 @@ export default function App() {
   }
 
   if (screen === 'settings')
-    return <SettingsScreen onBack={() => setScreen('main')} />;
+    return (
+      <SettingsScreen
+        onBack={() => setScreen('main')}
+        onPromptsImported={(updatedPrompts) => {
+          setPrompts(updatedPrompts || []);
+          storage.get(['pp_history']).then(({ pp_history }) => {
+            setHistory(pp_history || []);
+          });
+        }}
+      />
+    );
 
   if (screen === 'score')
     return (
@@ -1377,7 +1703,40 @@ export default function App() {
         {/* Input */}
         <div>
           <Label>Your Prompt</Label>
-          <textarea
+          <div
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            style={{
+              position: 'relative',
+              borderRadius: 9,
+              transition: 'all 0.2s',
+              border: isDragging ? '2px dashed var(--accent-light)' : 'none',
+              padding: isDragging ? 2 : 0,
+              background: isDragging ? 'rgba(124,58,237,0.1)' : 'transparent',
+            }}
+          >
+            {isDragging && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'rgba(0,0,0,0.4)',
+                  color: 'white',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  borderRadius: 9,
+                  zIndex: 10,
+                  pointerEvents: 'none'
+                }}
+              >
+                Drop files to append as context
+              </div>
+            )}
+            <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -1408,6 +1767,7 @@ export default function App() {
             }
             onBlur={(e) => (e.target.style.borderColor = 'var(--border-color)')}
           />
+          </div>
           <div
             style={{
               display: 'flex',
@@ -1429,6 +1789,33 @@ export default function App() {
               {showEx ? '▲ hide examples' : '▼ quick examples'}
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="file"
+                multiple
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                onChange={(e) => handleFiles(e.target.files)}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach Files"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: 'var(--text-muted)',
+                  transition: 'color 0.2s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                </svg>
+              </button>
               {/* Live counter */}
               {(() => {
                 const len = input.length;
