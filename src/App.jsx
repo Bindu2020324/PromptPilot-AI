@@ -838,6 +838,19 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // Handle global Escape key to reset the workspace
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && screen === 'main' && !loading) {
+        setInput('');
+        setResult(null);
+        setError('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [screen, loading]);
+
   // Toggle theme function
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
@@ -1476,7 +1489,7 @@ export default function App() {
                 </button>
               )}
               <span style={{ fontSize: 9, color: 'var(--text-ultra-faint)' }}>
-                Ctrl + Enter
+                Esc to clear · Ctrl + Enter to forge
               </span>
             </div>
           </div>
