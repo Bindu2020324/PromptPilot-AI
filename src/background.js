@@ -43,11 +43,26 @@ async function ensureContent(tabId) {
 
 // ── API proxy ─────────────────────────────────────────────────────────
 
+let isProcessing = false;
+let lastRequestTime = 0;
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'PP_API') {
+    const now = Date.now();
+    if (now - lastRequestTime < 500) {
+      // Duplicate rapid request, ignore
+      sendResponse({ ok: false, error: 'Duplicate request ignored.' });
+      return true;
+    }
+    lastRequestTime = now;
+    if (isProcessing) {
+      sendResponse({ ok: false, error: 'Another request is already in progress. Please wait.' });
+      return true;
+    }
+    isProcessing = true;
     callAPI(msg)
       .then((r) => sendResponse({ ok: true, data: r }))
-      .catch((e) => sendResponse({ ok: false, error: e.message }));
+      .catch((e) => sendResponse({ ok: false, error: e.message }))
+      .finally(() => { isProcessing = false; });
     return true;
   }
 });
