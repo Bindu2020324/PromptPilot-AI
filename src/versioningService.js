@@ -149,6 +149,7 @@ export const versioningService = {
       created_at: now,
       updated_at: now,
       tags: metadata.tags || [],
+      favorite: false,
     };
 
     const updated = [prompt, ...prompts].slice(0, MAX_PROMPTS); // Keep max prompts
@@ -203,7 +204,9 @@ export const versioningService = {
   async getVersion(promptId, versionNumber) {
     const prompt = await this.getPromptById(promptId);
     if (!prompt) return null;
-    return prompt.versions.find((v) => v.version_number === versionNumber) || null;
+    return (
+      prompt.versions.find((v) => v.version_number === versionNumber) || null
+    );
   },
 
   /**
@@ -255,7 +258,8 @@ export const versioningService = {
       version2: version2,
       changes: {
         clarityDiff: version2.clarity_score - version1.clarity_score,
-        specificityDiff: version2.specificity_score - version1.specificity_score,
+        specificityDiff:
+          version2.specificity_score - version1.specificity_score,
         qualityDiff: version2.quality_score - version1.quality_score,
       },
     };
@@ -421,67 +425,78 @@ export const versioningService = {
    */
   async migrateFromLegacy() {
     return new Promise((res) => {
-      chrome.storage.local.get(['pp_history'], async (data) => {
-        const legacyHistory = data.pp_history || [];
-        if (legacyHistory.length === 0) {
-          res();
-          return;
-        }
+      chrome.storage.local.get(
+        ['pp_history', STORAGE_KEY_PROMPTS],
+        async (data) => {
+          const legacyHistory = data.pp_history || [];
+          const existingPrompts = data[STORAGE_KEY_PROMPTS] || [];
 
-        const prompts = [];
-        // Group by original text and create versioned entries
-        const grouped = {};
-        legacyHistory.forEach((item) => {
-          const key = item.original || 'unknown';
-          if (!grouped[key]) grouped[key] = [];
-          grouped[key].push(item);
-        });
+          if (legacyHistory.length === 0 || existingPrompts.length > 0) {
+            if (legacyHistory.length > 0) {
+              await new Promise((res2) => {
+                chrome.storage.local.remove(['pp_history'], res2);
+              });
+            }
+            res();
+            return;
+          }
 
-        let id_counter = 1;
-        Object.values(grouped).forEach((items) => {
-          // Sort by timestamp
-          items.sort((a, b) => a.ts - b.ts);
-
-          const id = `pp_legacy_${id_counter++}`;
-          const versions = items.map((item, idx) => ({
-            version_number: idx + 1,
-            enhanced_prompt: item.enhanced_prompt,
-            clarity_score: item.clarity_score,
-            specificity_score: item.specificity_score,
-            quality_score: item.quality_score,
-            domain_detected: item.domain_detected,
-            missing_requirements: item.missing_requirements || [],
-            transformation_insight: item.transformation_insight || '',
-            ambiguities_resolved: item.ambiguities_resolved || [],
-            provider: item.provider || 'gemini',
-            model: item.model || 'gemini-pro',
-            created_at: item.ts,
-            change_note: `Migrated (v${idx + 1})`,
-          }));
-
-          prompts.push({
-            id,
-            original_text: items[0].original,
-            domain: items[0].domain || '',
-            mode: items[0].mode || 'technical',
-            versions: versions.reverse(), // Most recent first
-            created_at: items[0].ts,
-            updated_at: items[items.length - 1].ts,
-            tags: [],
+          const prompts = [];
+          // Group by original text and create versioned entries
+          const grouped = {};
+          legacyHistory.forEach((item) => {
+            const key = item.original || 'unknown';
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(item);
           });
-        });
 
-        await new Promise((res2) => {
-          chrome.storage.local.set({ [STORAGE_KEY_PROMPTS]: prompts }, res2);
-        });
+          let id_counter = 1;
+          Object.values(grouped).forEach((items) => {
+            // Sort by timestamp
+            items.sort((a, b) => a.ts - b.ts);
 
-        // Clear legacy storage
-        await new Promise((res2) => {
-          chrome.storage.local.remove(['pp_history'], res2);
-        });
+            const id = `pp_legacy_${id_counter++}`;
+            const versions = items.map((item, idx) => ({
+              version_number: idx + 1,
+              enhanced_prompt: item.enhanced_prompt,
+              clarity_score: item.clarity_score,
+              specificity_score: item.specificity_score,
+              quality_score: item.quality_score,
+              domain_detected: item.domain_detected,
+              missing_requirements: item.missing_requirements || [],
+              transformation_insight: item.transformation_insight || '',
+              ambiguities_resolved: item.ambiguities_resolved || [],
+              provider: item.provider || 'gemini',
+              model: item.model || 'gemini-pro',
+              created_at: item.ts,
+              change_note: `Migrated (v${idx + 1})`,
+            }));
 
-        res();
-      });
+            prompts.push({
+              id,
+              original_text: items[0].original,
+              domain: items[0].domain || '',
+              mode: items[0].mode || 'technical',
+              versions: versions.reverse(), // Most recent first
+              created_at: items[0].ts,
+              updated_at: items[items.length - 1].ts,
+              tags: [],
+              favorite: items.some((item) => item.favorite) || false,
+            });
+          });
+
+          await new Promise((res2) => {
+            chrome.storage.local.set({ [STORAGE_KEY_PROMPTS]: prompts }, res2);
+          });
+
+          // Clear legacy storage
+          await new Promise((res2) => {
+            chrome.storage.local.remove(['pp_history'], res2);
+          });
+
+          res();
+        }
+      );
     });
   },
 };

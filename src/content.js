@@ -552,10 +552,13 @@
 
               if (!res || !res.ok) {
                 const err = $('__pp_error');
-                const errorMsg = res?.error || 'Unexpected Error: Something went wrong. Please try again.';
+                const errorMsg =
+                  res?.error ||
+                  'Unexpected Error: Something went wrong. Please try again.';
                 const parts = errorMsg.split(': ');
                 const title = parts.length > 1 ? parts[0] : 'Error';
-                const message = parts.length > 1 ? parts.slice(1).join(': ') : errorMsg;
+                const message =
+                  parts.length > 1 ? parts.slice(1).join(': ') : errorMsg;
                 err.innerHTML = `
                   <div style="font-weight: 600; margin-bottom: 2px;">⚠ ${title}</div>
                   <div>${message}</div>

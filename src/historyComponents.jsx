@@ -7,12 +7,21 @@ import React, { useState } from 'react';
 /**
  * VersionCard - Displays a single version with actions
  */
-export function VersionCard({ version, promptId, onRestore, onCompare, isLatest }) {
+export function VersionCard({
+  version,
+  promptId,
+  onRestore,
+  onCompare,
+  isLatest,
+}) {
   const createdDate = new Date(version.created_at);
   const dateStr = createdDate.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: createdDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+    year:
+      createdDate.getFullYear() !== new Date().getFullYear()
+        ? 'numeric'
+        : undefined,
   });
   const timeStr = createdDate.toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -24,7 +33,9 @@ export function VersionCard({ version, promptId, onRestore, onCompare, isLatest 
     <div
       style={{
         background: isLatest ? 'rgba(124,58,237,0.1)' : 'var(--bg-tertiary)',
-        border: isLatest ? '1.5px solid rgba(124,58,237,0.4)' : '1px solid var(--border-color)',
+        border: isLatest
+          ? '1.5px solid rgba(124,58,237,0.4)'
+          : '1px solid var(--border-color)',
         borderRadius: 10,
         padding: '12px 14px',
         display: 'flex',
@@ -33,13 +44,21 @@ export function VersionCard({ version, promptId, onRestore, onCompare, isLatest 
       }}
     >
       {/* Header with version badge and date */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span
             style={{
               fontSize: 10,
               fontWeight: 700,
-              background: isLatest ? 'rgba(124,58,237,0.3)' : 'rgba(107,114,128,0.3)',
+              background: isLatest
+                ? 'rgba(124,58,237,0.3)'
+                : 'rgba(107,114,128,0.3)',
               color: isLatest ? '#a78bfa' : '#9ca3af',
               padding: '3px 8px',
               borderRadius: 12,
@@ -54,18 +73,28 @@ export function VersionCard({ version, promptId, onRestore, onCompare, isLatest 
             {dateStr} at {timeStr}
           </span>
         </div>
-        <span style={{ fontSize: 9, color: 'var(--text-very-faint)', fontStyle: 'italic' }}>
+        <span
+          style={{
+            fontSize: 9,
+            color: 'var(--text-very-faint)',
+            fontStyle: 'italic',
+          }}
+        >
           {version.provider}
         </span>
       </div>
 
       {/* Change note */}
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+      <div
+        style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}
+      >
         {version.change_note}
       </div>
 
       {/* Scores */}
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'space-between' }}>
+      <div
+        style={{ display: 'flex', gap: 12, justifyContent: 'space-between' }}
+      >
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <div
@@ -154,12 +183,7 @@ export function VersionCard({ version, promptId, onRestore, onCompare, isLatest 
 /**
  * VersionHistoryPanel - Shows all versions of a prompt
  */
-export function VersionHistoryPanel({
-  prompt,
-  onRestore,
-  onCompare,
-  onBack,
-}) {
+export function VersionHistoryPanel({ prompt, onRestore, onCompare, onBack }) {
   const versions = prompt.versions || [];
   const latestVersion = versions[0];
 
@@ -195,8 +219,12 @@ export function VersionHistoryPanel({
               cursor: 'pointer',
               transition: 'color 0.15s',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.color = 'var(--text-primary)')
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = 'var(--text-muted)')
+            }
           >
             ←
           </button>
@@ -218,8 +246,19 @@ export function VersionHistoryPanel({
       </div>
 
       {/* Original text preview */}
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)' }}>
-        <span style={{ fontSize: 8, color: 'var(--text-faint)', textTransform: 'uppercase' }}>
+      <div
+        style={{
+          padding: '12px 16px',
+          borderBottom: '1px solid var(--border-color)',
+        }}
+      >
+        <span
+          style={{
+            fontSize: 8,
+            color: 'var(--text-faint)',
+            textTransform: 'uppercase',
+          }}
+        >
           Original Prompt
         </span>
         <div
@@ -336,7 +375,12 @@ export function DiffView({ version1, version2, onClose }) {
             overflow: 'hidden',
           }}
         >
-          <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border-color)' }}>
+          <div
+            style={{
+              padding: '12px 14px',
+              borderBottom: '1px solid var(--border-color)',
+            }}
+          >
             <span style={{ fontSize: 9, color: '#a78bfa', fontWeight: 700 }}>
               v{version1.version_number}
             </span>
@@ -356,9 +400,15 @@ export function DiffView({ version1, version2, onClose }) {
           >
             {version1.enhanced_prompt}
           </div>
-          <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border-color)' }}>
+          <div
+            style={{
+              padding: '8px 14px',
+              borderTop: '1px solid var(--border-color)',
+            }}
+          >
             <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>
-              Clarity: {version1.clarity_score} | Quality: {version1.quality_score}
+              Clarity: {version1.clarity_score} | Quality:{' '}
+              {version1.quality_score}
             </div>
           </div>
         </div>
@@ -372,7 +422,12 @@ export function DiffView({ version1, version2, onClose }) {
             overflow: 'hidden',
           }}
         >
-          <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border-color)' }}>
+          <div
+            style={{
+              padding: '12px 14px',
+              borderBottom: '1px solid var(--border-color)',
+            }}
+          >
             <span style={{ fontSize: 9, color: '#a855f7', fontWeight: 700 }}>
               v{version2.version_number} · LATEST
             </span>
@@ -392,9 +447,15 @@ export function DiffView({ version1, version2, onClose }) {
           >
             {version2.enhanced_prompt}
           </div>
-          <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border-color)' }}>
+          <div
+            style={{
+              padding: '8px 14px',
+              borderTop: '1px solid var(--border-color)',
+            }}
+          >
             <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>
-              Clarity: {version2.clarity_score} | Quality: {version2.quality_score}
+              Clarity: {version2.clarity_score} | Quality:{' '}
+              {version2.quality_score}
             </div>
           </div>
         </div>
@@ -406,12 +467,7 @@ export function DiffView({ version1, version2, onClose }) {
 /**
  * PromptsList - Lists all prompts with their latest versions
  */
-export function PromptsList({
-  prompts,
-  onSelectPrompt,
-  onClearAll,
-  onBack,
-}) {
+export function PromptsList({ prompts, onSelectPrompt, onClearAll, onBack }) {
   return (
     <div
       style={{
@@ -532,11 +588,18 @@ export function PromptsList({
                   e.currentTarget.style.background = 'var(--bg-tertiary)';
                 }}
               >
-                <div style={{ fontSize: 9, color: 'var(--text-faint)', marginBottom: 4 }}>
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: 'var(--text-faint)',
+                    marginBottom: 4,
+                  }}
+                >
                   {prompt.domain || '—'} · {prompt.mode} ·{' '}
                   {new Date(prompt.updated_at).toLocaleDateString()} ·{' '}
                   <span style={{ color: '#a78bfa' }}>
-                    {prompt.versions.length} version{prompt.versions.length !== 1 ? 's' : ''}
+                    {prompt.versions.length} version
+                    {prompt.versions.length !== 1 ? 's' : ''}
                   </span>
                 </div>
                 <div
