@@ -661,6 +661,37 @@
           .join('');
     }
 
+    // Download button
+    const actionsDiv = $('__pp_actions');
+    const downloadBtn = document.createElement('button');
+    downloadBtn.id = '__pp_download_btn';
+    downloadBtn.className = 'pp-btn-ghost';
+    downloadBtn.textContent = 'Download Prompt';
+    actionsDiv.insertBefore(downloadBtn, actionsDiv.firstChild);
+
+    downloadBtn.addEventListener('click', () => {
+      const payload = {
+        format: 'promptpilot.prompt',
+        version: 1,
+        exported_at: Date.now(),
+        prompt: {
+          enhanced_prompt: r.enhanced_prompt,
+          clarity_score: r.clarity_score,
+          specificity_score: r.specificity_score,
+          quality_score: r.quality_score,
+          domain_detected: r.domain_detected,
+          missing_requirements: r.missing_requirements,
+          transformation_insight: r.transformation_insight,
+          ambiguities_resolved: r.ambiguities_resolved,
+          provider: r.provider,
+          model: r.model,
+        },
+      };
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadJson(payload, `promptpilot-prompt-${stamp}.json`);
+      showToast('Prompt exported successfully.', 'success');
+    });
+
     // Copy enhanced button
     $('__pp_copy_enhanced').addEventListener('click', () => {
       copyText(enhanced);
