@@ -1,34 +1,31 @@
 ---
 name: Bug Report
-about: Report a bug or issue with PromptPilot-AI
-title: "[BUG] "
-labels: bug
-assignees: ''
-
+about: Create a report to help us improve PromptPilot AI
+title: 'fix: [Brief Description of Bug]'
+labels: ['bug', 'triage']
+assignees: []
 ---
 
-## Description
+# Bug Report
+
+## Describe the Bug
 A clear and concise description of what the bug is.
 
 ## Steps to Reproduce
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '...'
-3. Scroll down to '...'
-4. See error
+1. Open the extension popup or select text on a page.
+2. Trigger "Enhance with PromptPilot".
+3. Notice behavior...
+
+## Current Behavior
+What actually happens.
 
 ## Expected Behavior
-A clear and concise description of what you expected to happen.
+What should happen.
 
-## Actual Behavior
-What actually happened instead. Include error messages if applicable.
+## Environment Details
+- Browser & Version: [e.g. Chrome 124]
+- Extension Version: [e.g. 1.0.0]
+- OS: [e.g. Windows 11]
 
-## Browser and Extension Information
-- **Browser:** [e.g., Chrome, Firefox, Edge]
-- **Browser Version:** [e.g., 120.0]
-- **Extension Version:** [e.g., 1.0.0]
-- **OS:** [e.g., Windows 10, macOS 13.5, Ubuntu 22.04]
-
-## Console Error Logs
-```text
-Paste any relevant console errors here (F12 > Console tab)
+## Additional Context
+Add any other context, screenshots, or console logs here.
