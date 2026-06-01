@@ -1,3 +1,4 @@
+import TemplateManager from "./components/TemplateManager";
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { versioningService } from './versioningService';
 import {
@@ -1687,18 +1688,22 @@ export default function App() {
       </div>
 
       {/* ── Body ── */}
+           
+
       <div
         style={{
           flex: 1,
           overflowY: 'auto',
           padding: '13px 14px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
         }}
       >
-        {/* API key warning */}
-        <ApiKeyWarning onSettings={() => setScreen('settings')} />
+        <TemplateManager />
+
+        <ApiKeyWarning
+          onSettings={() => setScreen('settings')}
+        />
+
+        
 
         {/* Input */}
         <div>
