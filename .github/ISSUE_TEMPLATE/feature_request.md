@@ -1,35 +1,21 @@
 ---
 name: Feature Request
-about: Suggest an idea for PromptPilot-AI
-title: "[FEATURE] "
-labels: enhancement
-assignees: ''
-
+about: Suggest an idea or enhancement for PromptPilot AI
+title: 'feat: [Brief Description of Feature]'
+labels: ['enhancement', 'triage']
+assignees: []
 ---
 
+# Feature Request
+
 ## Problem Statement
-Describe the problem you're trying to solve. What's the current limitation or challenge?
+Is your feature request related to a problem? Please describe.
 
 ## Proposed Solution
-A clear and concise description of what you want to happen.
+Describe the solution or enhancement you'd like to see added to PromptPilot.
 
-## Proposed Implementation
-Describe the technical approach or implementation details (if applicable).
-
-## Tech Involved
-- **Languages/Technologies:** [e.g., React, JavaScript, CSS]
-- **Components Affected:** [e.g., UI, background script, content script]
-- **Dependencies:** [List any new dependencies, if applicable]
-
-## Acceptance Criteria
-Outline the specific requirements that must be met for this feature to be considered complete:
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] Criterion 3
+## Alternative Solutions
+Describe any alternative solutions or features you've considered.
 
 ## Additional Context
-Any other context, screenshots, or examples about the feature request here.
-
-## Is This a Breaking Change?
-- [ ] Yes
-- [ ] No
+Add any other context, mockup drawings, or screenshots here.

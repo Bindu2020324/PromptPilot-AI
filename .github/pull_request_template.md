@@ -1,17 +1,27 @@
-## Description
-Briefly describe the changes made in this PR.
+# Pull Request Template
 
-## Type of Change
+## What type of change is this?
 - [ ] Bug fix
-- [ ] New feature
-- [ ] Documentation update
-- [ ] Refactor
+- [ ] Feature
+- [ ] Docs
+- [ ] Chore
 
-## Testing Done
-Describe the testing performed.
+## Related issue
+Closes #
+
+## Changes made
+- 
+- 
+- 
+
+## How to test
+1. 
+2. 
+3. 
 
 ## Checklist
-- [ ] Build passes successfully
-- [ ] Documentation updated if required
-- [ ] Tested in Chrome
-- [ ] Code follows project guidelines
+- [ ] Code follows ESLint rules (`npm run lint` passes)
+- [ ] Code formatted with Prettier (`npm run format`)
+- [ ] No API keys or secrets in code
+- [ ] README updated if needed
+- [ ] Tested locally in Chrome extension
