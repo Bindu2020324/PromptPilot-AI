@@ -779,6 +779,14 @@ function getCounterState(len) {
 
 export default function App() {
   const [screen, setScreen] = useState('main');
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState(null);
+
+  useEffect(() => {
+    storage.get(['pp_templates']).then(({ pp_templates }) => {
+      if (pp_templates) setTemplates(pp_templates);
+    });
+  }, []);
   const [history, setHistory] = useState([]);
   const [analytics, setAnalytics] = useState({
     totalPrompts: 0,
@@ -905,6 +913,15 @@ export default function App() {
       return;
     }
 
+    let customTemplate = null;
+    let finalDomain = domain;
+    let finalMode = mode;
+    if (selectedTemplateId) {
+      customTemplate = templates.find((t) => t.id === selectedTemplateId);
+      finalDomain = '';
+      finalMode = '';
+    }
+
     abortRef.current?.abort();
     abortRef.current = new AbortController();
     setLoading(true);
@@ -916,10 +933,11 @@ export default function App() {
       {
         type: 'PP_API',
         prompt: input.trim(),
-        domain,
-        mode,
+        domain: finalDomain,
+        mode: finalMode,
         provider: pp_provider || 'gemini',
         apiKey: pp_key,
+        customTemplate,
       },
       async (res) => {
         setLoading(false);
@@ -1008,7 +1026,7 @@ export default function App() {
         }
       }
     );
-  }, [input, domain, mode, loading, history]);
+  }, [input, domain, mode, loading, history, templates, selectedTemplateId]);
 
   function handleCopy(text) {
     if (!text) return;
@@ -1179,6 +1197,15 @@ export default function App() {
   if (screen === 'settings')
     return <SettingsScreen onBack={() => setScreen('main')} />;
 
+  if (screen === 'templates')
+    return (
+      <TemplatesScreen
+        templates={templates}
+        setTemplates={setTemplates}
+        onBack={() => setScreen('main')}
+      />
+    );
+
   if (screen === 'score')
     return (
       <ScorePanel
@@ -1344,6 +1371,7 @@ export default function App() {
             {theme === 'dark' ? '☀' : '☾'}
           </button>
           {[
+            { icon: '📝', s: 'templates', title: 'Templates' },
             { icon: '📈', s: 'score-trends', title: 'Score Trends' },
             { icon: '◷', s: 'history', title: 'History' },
             { icon: '📊', s: 'analytics', title: 'Analytics' },
@@ -1527,6 +1555,32 @@ export default function App() {
           </div>
         )}
 
+        {/* Custom Templates */}
+        {templates.length > 0 && (
+          <div>
+            <Label sub="(overrides domain & mode)">Custom Templates</Label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {templates.map((t) => (
+                <Pill
+                  key={t.id}
+                  active={selectedTemplateId === t.id}
+                  onClick={() => {
+                    if (selectedTemplateId === t.id) {
+                      setSelectedTemplateId(null);
+                    } else {
+                      setSelectedTemplateId(t.id);
+                      setDomain('');
+                    }
+                  }}
+                >
+                  {t.favorite ? '⭐ ' : ''}
+                  {t.name}
+                </Pill>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Domain */}
         <div>
           <Label sub="(optional — auto-detected if skipped)">Domain</Label>
@@ -1535,7 +1589,10 @@ export default function App() {
               <Pill
                 key={d.id}
                 active={domain === d.id}
-                onClick={() => setDomain(domain === d.id ? '' : d.id)}
+                onClick={() => {
+                  setDomain(domain === d.id ? '' : d.id);
+                  setSelectedTemplateId(null);
+                }}
               >
                 {d.icon} {d.label}
               </Pill>
@@ -1551,7 +1608,10 @@ export default function App() {
               <Pill
                 key={m.id}
                 active={mode === m.id}
-                onClick={() => setMode(m.id)}
+                onClick={() => {
+                  setMode(m.id);
+                  setSelectedTemplateId(null);
+                }}
                 title={m.desc}
               >
                 {m.label}
@@ -2121,3 +2181,503 @@ function ApiKeyWarning({ onSettings }) {
     </button>
   );
 }
+
+// ─── Templates Screen ──────────────────────────────────────────────────────────
+
+function TemplatesScreen({ templates, setTemplates, onBack }) {
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const fileInputRef = useRef(null);
+
+  function handleAdd() {
+    setEditingTemplate({
+      id: '',
+      name: '',
+      persona: '',
+      framework: '',
+      outputFormat: '',
+      favorite: false,
+    });
+  }
+
+  function handleEdit(t) {
+    setEditingTemplate({ ...t });
+  }
+
+  async function handleDelete(id) {
+    if (!window.confirm('Delete this template?')) return;
+    const updated = templates.filter((t) => t.id !== id);
+    setTemplates(updated);
+    await storage.set({ pp_templates: updated });
+  }
+
+  async function handleToggleFavorite(id) {
+    const updated = templates.map((t) =>
+      t.id === id ? { ...t, favorite: !t.favorite } : t
+    );
+    setTemplates(updated);
+    await storage.set({ pp_templates: updated });
+  }
+
+  async function handleSave() {
+    if (!editingTemplate.name.trim() || !editingTemplate.persona.trim()) {
+      alert('Name and Persona fields are required.');
+      return;
+    }
+
+    let updated;
+    if (editingTemplate.id) {
+      updated = templates.map((t) =>
+        t.id === editingTemplate.id ? editingTemplate : t
+      );
+    } else {
+      const newT = {
+        ...editingTemplate,
+        id: String(Date.now()),
+      };
+      updated = [...templates, newT];
+    }
+
+    setTemplates(updated);
+    await storage.set({ pp_templates: updated });
+    setEditingTemplate(null);
+  }
+
+  function handleExport() {
+    try {
+      const dataStr = JSON.stringify(templates, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'promptpilot-templates.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export templates:', err);
+    }
+  }
+
+  function handleImport(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const imported = JSON.parse(event.target.result);
+        if (!Array.isArray(imported)) {
+          alert('Invalid template file: Must be a JSON array.');
+          return;
+        }
+        const valid = imported.every(
+          (t) => t && typeof t === 'object' && t.name && t.persona
+        );
+        if (!valid) {
+          alert(
+            'Invalid template format: Each template must have "name" and "persona".'
+          );
+          return;
+        }
+        const normalized = imported.map((t) => ({
+          id: t.id || String(Date.now() + Math.random()),
+          name: String(t.name),
+          persona: String(t.persona),
+          framework: t.framework ? String(t.framework) : '',
+          outputFormat: t.outputFormat ? String(t.outputFormat) : '',
+          favorite: !!t.favorite,
+        }));
+
+        const merged = [...templates];
+        normalized.forEach((n) => {
+          const idx = merged.findIndex((t) => t.id === n.id);
+          if (idx !== -1) {
+            merged[idx] = n;
+          } else {
+            merged.push(n);
+          }
+        });
+
+        setTemplates(merged);
+        await storage.set({ pp_templates: merged });
+        alert(`Successfully imported ${normalized.length} templates!`);
+      } catch (_) {
+        alert('Failed to parse JSON file.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
+  if (editingTemplate) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          padding: 18,
+          gap: 14,
+          overflowY: 'auto',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => setEditingTemplate(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              fontSize: 18,
+              padding: 0,
+              cursor: 'pointer',
+            }}
+          >
+            ←
+          </button>
+          <span style={{ fontSize: 14, fontWeight: 700 }}>
+            {editingTemplate.id ? 'Edit Template' : 'New Template'}
+          </span>
+        </div>
+
+        <div>
+          <Label>Template Name *</Label>
+          <input
+            type="text"
+            value={editingTemplate.name}
+            onChange={(e) =>
+              setEditingTemplate({ ...editingTemplate, name: e.target.value })
+            }
+            placeholder="e.g. Senior Rust Security Auditor"
+            style={inputStyle}
+          />
+        </div>
+
+        <div>
+          <Label>System Persona / Context *</Label>
+          <textarea
+            value={editingTemplate.persona}
+            onChange={(e) =>
+              setEditingTemplate({
+                ...editingTemplate,
+                persona: e.target.value,
+              })
+            }
+            placeholder="e.g. You are a senior software security auditor. Focus on identifying concurrency bugs, memory safety issues, and insecure configurations."
+            rows={4}
+            style={textareaStyle}
+          />
+        </div>
+
+        <div>
+          <Label sub="(optional)">Prompt Framework / Instructions</Label>
+          <textarea
+            value={editingTemplate.framework}
+            onChange={(e) =>
+              setEditingTemplate({
+                ...editingTemplate,
+                framework: e.target.value,
+              })
+            }
+            placeholder="e.g. Write a step-by-step reasoning chain explaining your methodology before producing the code."
+            rows={3}
+            style={textareaStyle}
+          />
+        </div>
+
+        <div>
+          <Label sub="(optional)">Custom Output Format Details</Label>
+          <textarea
+            value={editingTemplate.outputFormat}
+            onChange={(e) =>
+              setEditingTemplate({
+                ...editingTemplate,
+                outputFormat: e.target.value,
+              })
+            }
+            placeholder="e.g. Include a 'Complexity' section and a table of vulnerability categories with severity ranks."
+            rows={3}
+            style={textareaStyle}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <button
+            onClick={handleSave}
+            style={{
+              flex: 1,
+              padding: 11,
+              borderRadius: 10,
+              border: 'none',
+              background: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+              color: 'var(--text-primary)',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Save Template
+          </button>
+          <button
+            onClick={() => setEditingTemplate(null)}
+            style={{
+              padding: 11,
+              borderRadius: 10,
+              border: '1.5px solid var(--border-color)',
+              background: 'none',
+              color: 'var(--text-secondary)',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '13px 16px',
+          borderBottom: '1px solid var(--border-color)',
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={onBack}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              fontSize: 18,
+              padding: 0,
+              cursor: 'pointer',
+            }}
+          >
+            ←
+          </button>
+          <span style={{ fontSize: 14, fontWeight: 700 }}>
+            Custom Templates
+          </span>
+          <span
+            style={{
+              fontSize: 10,
+              color: '#a78bfa',
+              background: 'rgba(124,58,237,0.18)',
+              border: '1px solid rgba(124,58,237,0.3)',
+              padding: '1px 7px',
+              borderRadius: 20,
+            }}
+          >
+            {templates.length}
+          </span>
+        </div>
+
+        <button
+          onClick={handleAdd}
+          style={{
+            background: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+            border: 'none',
+            borderRadius: 7,
+            padding: '4px 10px',
+            fontSize: 11,
+            fontWeight: 700,
+            color: 'white',
+            cursor: 'pointer',
+          }}
+        >
+          + Add
+        </button>
+      </div>
+
+      <div
+        style={{
+          padding: '10px 12px',
+          display: 'flex',
+          gap: 8,
+          borderBottom: '1px solid var(--border-color)',
+          background: 'rgba(255,255,255,0.01)',
+          flexShrink: 0,
+        }}
+      >
+        <input
+          type="file"
+          accept=".json"
+          ref={fileInputRef}
+          onChange={handleImport}
+          style={{ display: 'none' }}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          style={toolbarButtonStyle}
+        >
+          📥 Import JSON
+        </button>
+        <button onClick={handleExport} style={toolbarButtonStyle}>
+          📤 Export JSON
+        </button>
+      </div>
+
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}
+      >
+        {templates.length === 0 ? (
+          <div
+            style={{
+              textAlign: 'center',
+              color: 'var(--text-faint)',
+              fontSize: 12,
+              marginTop: 48,
+              lineHeight: 1.8,
+            }}
+          >
+            No templates created yet.
+            <br />
+            Click "+ Add" to create your first persona template.
+          </div>
+        ) : (
+          templates.map((t) => (
+            <div
+              key={t.id}
+              style={{
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 10,
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+                position: 'relative',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    onClick={() => handleToggleFavorite(t.id)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: 14,
+                      color: t.favorite ? '#facc15' : '#555',
+                      padding: 0,
+                    }}
+                  >
+                    {t.favorite ? '★' : '☆'}
+                  </button>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: 'var(--text-primary)',
+                    }}
+                  >
+                    {t.name}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    onClick={() => handleEdit(t)}
+                    title="Edit Template"
+                    style={iconButtonStyle}
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => handleDelete(t.id)}
+                    title="Delete Template"
+                    style={{ ...iconButtonStyle, color: 'var(--accent-red)' }}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  fontSize: 11,
+                  color: 'var(--text-muted)',
+                  lineHeight: 1.5,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                }}
+              >
+                {t.persona}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+const inputStyle = {
+  width: '100%',
+  padding: '10px 12px',
+  borderRadius: 9,
+  background: 'var(--input-bg)',
+  border: '1.5px solid var(--border-color)',
+  color: 'var(--text-primary)',
+  fontSize: 13,
+  outline: 'none',
+};
+
+const textareaStyle = {
+  width: '100%',
+  padding: '10px 12px',
+  borderRadius: 9,
+  background: 'var(--input-bg)',
+  border: '1.5px solid var(--border-color)',
+  color: 'var(--text-primary)',
+  fontSize: 13,
+  outline: 'none',
+  resize: 'vertical',
+  fontFamily: 'inherit',
+};
+
+const toolbarButtonStyle = {
+  flex: 1,
+  background: 'none',
+  border: '1px solid var(--border-color)',
+  borderRadius: 7,
+  padding: '6px 10px',
+  fontSize: 11,
+  fontWeight: 600,
+  color: 'var(--text-secondary)',
+  cursor: 'pointer',
+  textAlign: 'center',
+};
+
+const iconButtonStyle = {
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  fontSize: 12,
+  padding: 4,
+};

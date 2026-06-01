@@ -145,10 +145,85 @@ JSON schema:
 }`;
 }
 
+function buildCustomSystemPrompt(template) {
+  const persona = template.persona || 'You are a helpful AI assistant.';
+  const framework =
+    template.framework ||
+    'Make prompts specific, structured, and highly actionable.';
+  const outputFormat = template.outputFormat || '';
+
+  return `${persona}
+
+TASK: Transform the user's weak/vague prompt into a structured expert-level prompt.
+FRAMEWORK: ${framework}
+${outputFormat ? `OUTPUT FORMAT INSTRUCTIONS: ${outputFormat}` : ''}
+
+OUTPUT STRUCTURE (use all applicable sections):
+━━━ ROLE ━━━
+[Expert role the AI should assume]
+
+━━━ OBJECTIVE ━━━
+[Clear, specific goal]
+
+━━━ CONTEXT ━━━
+[Relevant background and constraints]
+
+━━━ REQUIREMENTS ━━━
+[Detailed bullet list of what must be included]
+
+━━━ TECH STACK ━━━
+[Technologies, tools, frameworks — if applicable]
+
+━━━ CONSTRAINTS ━━━
+[Limitations, rules, non-negotiables]
+
+━━━ OUTPUT FORMAT ━━━
+[Exact format expected in the response]
+
+━━━ QUALITY EXPECTATIONS ━━━
+[What "done well" looks like]
+
+━━━ EDGE CASES ━━━
+[Things to handle carefully]
+
+━━━ BEST PRACTICES ━━━
+[Domain-specific standards to follow]
+
+RULES:
+- Infer all missing details — never ask for clarification
+- Preserve the user's original intent exactly
+- Be specific and actionable, not generic
+- Optimize for GPT-4o, Claude 3.5, Gemini 1.5
+- No filler or unnecessary text
+
+Respond ONLY with valid JSON. Zero markdown. Zero text outside JSON.
+
+JSON schema:
+{
+  "enhanced_prompt": "<full structured prompt with real newlines>",
+  "clarity_score": <0-100>,
+  "specificity_score": <0-100>,
+  "quality_score": <0-100>,
+  "domain_detected": "${(template.name || '').replace(/"/g, '\\"')}",
+  "missing_requirements": ["<string>","<string>","<string>"],
+  "transformation_insight": "<1-2 sentences>",
+  "ambiguities_resolved": ["<string>"]
+}`;
+}
+
 // ── Provider calls ────────────────────────────────────────────────────
 
-async function callAPI({ prompt, domain, mode, provider, apiKey }) {
-  const sys = buildSystemPrompt(domain, mode);
+async function callAPI({
+  prompt,
+  domain,
+  mode,
+  provider,
+  apiKey,
+  customTemplate,
+}) {
+  const sys = customTemplate
+    ? buildCustomSystemPrompt(customTemplate)
+    : buildSystemPrompt(domain, mode);
   const userMsg = `Enhance this prompt: "${prompt}"`;
   let raw = '';
 
@@ -174,7 +249,9 @@ async function callAPI({ prompt, domain, mode, provider, apiKey }) {
       clarity_score: 30,
       specificity_score: 30,
       quality_score: 30,
-      domain_detected: domain || 'general',
+      domain_detected: customTemplate
+        ? customTemplate.name
+        : domain || 'general',
       missing_requirements: [],
       transformation_insight: 'Enhancement complete.',
       ambiguities_resolved: [],

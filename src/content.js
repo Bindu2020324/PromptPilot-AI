@@ -326,6 +326,7 @@ import { scorePrompt } from './scoring/PromptScorer.js';
           <option value="social">Social Media</option>
           <option value="education">Education</option>
           <option value="dsa">DSA / CP</option>
+          <optgroup id="__pp_custom_templates_group" label="Custom Templates" style="display:none"></optgroup>
         </select>
       </div>
       <div style="flex:1">
@@ -463,6 +464,31 @@ import { scorePrompt } from './scoring/PromptScorer.js';
       });
     });
 
+    // Populate custom templates group
+    chrome.storage.local.get(['pp_templates'], ({ pp_templates }) => {
+      const templates = pp_templates || [];
+      const groupEl = $('__pp_custom_templates_group');
+      if (groupEl && templates.length > 0) {
+        groupEl.style.display = 'block';
+        groupEl.innerHTML = templates
+          .map((t) => `<option value="custom_${t.id}">${esc(t.name)}</option>`)
+          .join('');
+      }
+    });
+
+    // Handle template domain change to disable mode select
+    const domainSelect = $('__pp_domain');
+    const modeSelect = $('__pp_mode');
+    domainSelect.addEventListener('change', () => {
+      if (domainSelect.value.startsWith('custom_')) {
+        modeSelect.disabled = true;
+        modeSelect.style.opacity = '0.5';
+      } else {
+        modeSelect.disabled = false;
+        modeSelect.style.opacity = '1';
+      }
+    });
+
     // Check API key
     chrome.storage.local.get(['pp_key'], ({ pp_key }) => {
       if (!pp_key) $('__pp_nokey').style.display = 'flex';
@@ -471,14 +497,27 @@ import { scorePrompt } from './scoring/PromptScorer.js';
     // Enhance button
     $('__pp_forge_btn').addEventListener('click', () => {
       chrome.storage.local.get(
-        ['pp_key', 'pp_provider'],
-        async ({ pp_key, pp_provider }) => {
+        ['pp_key', 'pp_provider', 'pp_templates'],
+        async ({ pp_key, pp_provider, pp_templates }) => {
           if (!pp_key) {
             $('__pp_nokey').style.display = 'flex';
             return;
           }
-          const domain = $('__pp_domain').value;
-          const mode = $('__pp_mode').value;
+          const domainVal = domainSelect.value;
+          const modeVal = modeSelect.value;
+
+          let customTemplate = null;
+          let domain = domainVal;
+          let mode = modeVal;
+
+          if (domainVal.startsWith('custom_')) {
+            const templateId = domainVal.replace('custom_', '');
+            customTemplate = (pp_templates || []).find(
+              (t) => String(t.id) === templateId
+            );
+            domain = '';
+            mode = '';
+          }
 
           $('__pp_error').style.display = 'none';
           $('__pp_loading').style.display = 'flex';
@@ -493,6 +532,7 @@ import { scorePrompt } from './scoring/PromptScorer.js';
               mode,
               provider: pp_provider || 'gemini',
               apiKey: pp_key,
+              customTemplate,
             },
             (res) => {
               $('__pp_loading').style.display = 'none';
