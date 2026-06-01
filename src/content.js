@@ -300,6 +300,12 @@ import { scorePrompt } from './scoring/PromptScorer.js';
       ⚠ No API key — click the PromptPilot icon in your toolbar → ⚙ Settings to add one.
     </div>
 
+    <div class="pp-backup-row">
+      <button id="__pp_export_btn" class="pp-btn-ghost" type="button">Export Prompts</button>
+      <button id="__pp_import_btn" class="pp-btn-ghost" type="button">Import Prompts</button>
+      <input id="__pp_import_file" type="file" accept="application/json,.json" style="display:none" />
+    </div>
+
     <!-- Original -->
     <div class="pp-section">
       <div class="pp-label">Original Prompt</div>
@@ -494,11 +500,87 @@ import { scorePrompt } from './scoring/PromptScorer.js';
       if (!pp_key) $('__pp_nokey').style.display = 'flex';
     });
 
+    $('__pp_export_btn').addEventListener('click', async () => {
+      try {
+        const data = await storageGet(['pp_prompts', 'pp_history', 'pp_score_history']);
+        const payload = {
+          format: 'promptpilot.prompts',
+          version: 1,
+          exported_at: Date.now(),
+          prompt_count: Array.isArray(data.pp_prompts) ? data.pp_prompts.length : 0,
+          prompts: Array.isArray(data.pp_prompts) ? data.pp_prompts : [],
+          legacy_history: Array.isArray(data.pp_history) ? data.pp_history : [],
+          score_history: Array.isArray(data.pp_score_history) ? data.pp_score_history : [],
+        };
+        const stamp = new Date().toISOString().slice(0, 10);
+        downloadJson(payload, `promptpilot-prompts-${stamp}.json`);
+        showToast('Backup exported successfully.', 'success');
+      } catch (err) {
+        showToast(
+          `Export failed: ${err?.message || 'Unable to generate backup file.'}`,
+          'error'
+        );
+      }
+    });
+
+    $('__pp_import_btn').addEventListener('click', () => {
+      $('__pp_import_file').click();
+    });
+    $('__pp_import_file').addEventListener('change', async (event) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (
+          !parsed ||
+          typeof parsed !== 'object' ||
+          (!Array.isArray(parsed.prompts) && !Array.isArray(parsed.legacy_history))
+        ) {
+          throw new Error('Invalid backup format.');
+        }
+
+        const overwrite = window.confirm(
+          'Import mode:\nOK = overwrite duplicates\nCancel = merge and skip duplicates.'
+        );
+        const existing = await storageGet(['pp_prompts', 'pp_history', 'pp_score_history']);
+        const merged = mergeImportedData(
+          existing,
+          {
+            prompts: Array.isArray(parsed.prompts) ? parsed.prompts : [],
+            legacy_history: Array.isArray(parsed.legacy_history)
+              ? parsed.legacy_history
+              : [],
+            score_history: Array.isArray(parsed.score_history)
+              ? parsed.score_history
+              : [],
+          },
+          overwrite ? 'overwrite' : 'merge'
+        );
+
+        await storageSet({
+          pp_prompts: merged.prompts,
+          pp_history: merged.legacyHistory,
+          pp_score_history: merged.scoreHistory,
+        });
+        showToast(
+          `Import done. Added: ${merged.added}, Replaced: ${merged.replaced}, Skipped: ${merged.skipped}`,
+          'success'
+        );
+      } catch (err) {
+        showToast(`Import failed: ${err?.message || 'Invalid JSON file.'}`, 'error');
+      }
+    });
+
     // Enhance button
     $('__pp_forge_btn').addEventListener('click', () => {
       chrome.storage.local.get(
         ['pp_key', 'pp_provider', 'pp_templates'],
         async ({ pp_key, pp_provider, pp_templates }) => {
+        ['pp_key', 'pp_provider', 'pp_profile_role', 'pp_profile_stack', 'pp_profile_rules'],
+        async ({ pp_key, pp_provider, pp_profile_role, pp_profile_stack, pp_profile_rules }) => {
           if (!pp_key) {
             $('__pp_nokey').style.display = 'flex';
             return;
@@ -533,8 +615,11 @@ import { scorePrompt } from './scoring/PromptScorer.js';
               provider: pp_provider || 'gemini',
               apiKey: pp_key,
               customTemplate,
+              profileRole: pp_profile_role,
+              profileStack: pp_profile_stack,
+              profileRules: pp_profile_rules,
             },
-            (res) => {
+            async (res) => {
               $('__pp_loading').style.display = 'none';
               $('__pp_forge_btn').disabled = false;
               $('__pp_btn_text').textContent = '✦ Re-enhance';
@@ -554,6 +639,18 @@ import { scorePrompt } from './scoring/PromptScorer.js';
                 `;
                 err.style.display = 'block';
                 return;
+              }
+
+              try {
+                await persistEnhancedEntry({
+                  originalText,
+                  mode,
+                  domain,
+                  provider: pp_provider || 'gemini',
+                  result: res.data,
+                });
+              } catch (error) {
+                console.error('Failed to persist enhanced entry:', error);
               }
 
               renderResult(res.data, originalText, overlayEl);
@@ -637,6 +734,37 @@ import { scorePrompt } from './scoring/PromptScorer.js';
           .map((t) => `<span class="pp-tag-blue">✓ ${esc(t)}</span>`)
           .join('');
     }
+
+    // Download button
+    const actionsDiv = $('__pp_actions');
+    const downloadBtn = document.createElement('button');
+    downloadBtn.id = '__pp_download_btn';
+    downloadBtn.className = 'pp-btn-ghost';
+    downloadBtn.textContent = 'Download Prompt';
+    actionsDiv.insertBefore(downloadBtn, actionsDiv.firstChild);
+
+    downloadBtn.addEventListener('click', () => {
+      const payload = {
+        format: 'promptpilot.prompt',
+        version: 1,
+        exported_at: Date.now(),
+        prompt: {
+          enhanced_prompt: r.enhanced_prompt,
+          clarity_score: r.clarity_score,
+          specificity_score: r.specificity_score,
+          quality_score: r.quality_score,
+          domain_detected: r.domain_detected,
+          missing_requirements: r.missing_requirements,
+          transformation_insight: r.transformation_insight,
+          ambiguities_resolved: r.ambiguities_resolved,
+          provider: r.provider,
+          model: r.model,
+        },
+      };
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadJson(payload, `promptpilot-prompt-${stamp}.json`);
+      showToast('Prompt exported successfully.', 'success');
+    });
 
     // Copy enhanced button
     $('__pp_copy_enhanced').addEventListener('click', () => {
@@ -805,6 +933,205 @@ import { scorePrompt } from './scoring/PromptScorer.js';
     } else {
       fbCopy(text);
     }
+  }
+
+  function storageGet(keys) {
+    return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
+  }
+
+  function storageSet(obj) {
+    return new Promise((resolve) => chrome.storage.local.set(obj, resolve));
+  }
+
+  function downloadJson(payload, filename) {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function normalizeKey(value) {
+    return String(value || '')
+      .trim()
+      .toLowerCase();
+  }
+
+  function mergeImportedData(existing, incoming, mode) {
+    const outPrompts = Array.isArray(existing.pp_prompts)
+      ? [...existing.pp_prompts]
+      : [];
+    const outHistory = Array.isArray(existing.pp_history)
+      ? [...existing.pp_history]
+      : [];
+    const promptsIn = Array.isArray(incoming.prompts) ? incoming.prompts : [];
+    const historyIn = Array.isArray(incoming.legacy_history)
+      ? incoming.legacy_history
+      : [];
+    const scoreIn = Array.isArray(incoming.score_history) ? incoming.score_history : [];
+    const outScores = Array.isArray(existing.pp_score_history)
+      ? [...existing.pp_score_history]
+      : [];
+
+    const promptIndexByKey = new Map();
+    outPrompts.forEach((p, idx) => {
+      promptIndexByKey.set(normalizeKey(p?.original_text), idx);
+    });
+
+    const historyIndexByKey = new Map();
+    outHistory.forEach((h, idx) => {
+      historyIndexByKey.set(normalizeKey(h?.original), idx);
+    });
+
+    let added = 0;
+    let replaced = 0;
+    let skipped = 0;
+
+    promptsIn.forEach((prompt) => {
+      const key = normalizeKey(prompt?.original_text);
+      if (!key) {
+        skipped += 1;
+        return;
+      }
+      if (!promptIndexByKey.has(key)) {
+        outPrompts.push(prompt);
+        promptIndexByKey.set(key, outPrompts.length - 1);
+        added += 1;
+        return;
+      }
+      if (mode === 'overwrite') {
+        outPrompts[promptIndexByKey.get(key)] = prompt;
+        replaced += 1;
+      } else {
+        skipped += 1;
+      }
+    });
+
+    historyIn.forEach((entry) => {
+      const key = normalizeKey(entry?.original);
+      if (!key) return;
+      if (!historyIndexByKey.has(key)) {
+        outHistory.push(entry);
+        historyIndexByKey.set(key, outHistory.length - 1);
+        return;
+      }
+      if (mode === 'overwrite') {
+        outHistory[historyIndexByKey.get(key)] = entry;
+      }
+    });
+
+    outPrompts.sort((a, b) => Number(b?.updated_at || 0) - Number(a?.updated_at || 0));
+    outHistory.sort((a, b) => Number(b?.ts || 0) - Number(a?.ts || 0));
+    outScores.unshift(...scoreIn);
+    outScores.sort((a, b) => Number(b?.timestamp || 0) - Number(a?.timestamp || 0));
+
+    return {
+      prompts: outPrompts.slice(0, 100),
+      legacyHistory: outHistory.slice(0, 50),
+      scoreHistory: outScores.slice(0, 100),
+      added,
+      replaced,
+      skipped,
+    };
+  }
+
+  async function persistEnhancedEntry({ originalText, mode, domain, provider, result }) {
+    const data = await storageGet(['pp_prompts', 'pp_history', 'pp_score_history']);
+    const prompts = Array.isArray(data.pp_prompts) ? [...data.pp_prompts] : [];
+    const history = Array.isArray(data.pp_history) ? [...data.pp_history] : [];
+    const now = Date.now();
+
+    const promptKey = normalizeKey(originalText);
+    const promptIndex = prompts.findIndex(
+      (p) => normalizeKey(p?.original_text) === promptKey
+    );
+    const version = {
+      version_number: 1,
+      enhanced_prompt: result?.enhanced_prompt || '',
+      clarity_score: Number(result?.clarity_score || 0),
+      specificity_score: Number(result?.specificity_score || 0),
+      quality_score: Number(result?.quality_score || 0),
+      domain_detected: result?.domain_detected || '',
+      missing_requirements: Array.isArray(result?.missing_requirements)
+        ? result.missing_requirements
+        : [],
+      transformation_insight: result?.transformation_insight || '',
+      ambiguities_resolved: Array.isArray(result?.ambiguities_resolved)
+        ? result.ambiguities_resolved
+        : [],
+      provider: provider || 'gemini',
+      model: 'unknown',
+      created_at: now,
+      change_note: 'Enhanced from in-page modal',
+    };
+
+    if (promptIndex === -1) {
+      prompts.unshift({
+        id: `pp_${now}_${Math.random().toString(36).slice(2, 9)}`,
+        original_text: originalText,
+        domain: domain || '',
+        mode: mode || 'technical',
+        versions: [version],
+        created_at: now,
+        updated_at: now,
+        tags: [],
+      });
+    } else {
+      const existing = prompts[promptIndex];
+      const nextVersion = (existing?.versions?.[0]?.version_number || 0) + 1;
+      prompts[promptIndex] = {
+        ...existing,
+        domain: domain || existing.domain || '',
+        mode: mode || existing.mode || 'technical',
+        updated_at: now,
+        versions: [{ ...version, version_number: nextVersion }, ...(existing.versions || [])],
+      };
+    }
+
+    const historyEntry = {
+      ...result,
+      original: originalText,
+      mode: mode || 'technical',
+      domain: domain || '',
+      ts: now,
+      favorite: false,
+    };
+    history.unshift(historyEntry);
+
+    const clarity = Number(result?.clarity_score || 0);
+    const specificity = Number(result?.specificity_score || 0);
+    const quality = Number(result?.quality_score || 0);
+    const overall = Math.round((clarity + specificity + quality) / 3);
+    const grade = overall >= 95 ? 'S' : overall >= 85 ? 'A' : overall >= 75 ? 'B' : overall >= 65 ? 'C' : overall >= 50 ? 'D' : 'F';
+    const scoreHistory = Array.isArray(data.pp_score_history) ? [...data.pp_score_history] : [];
+    scoreHistory.unshift({
+      id: now.toString(36) + Math.random().toString(36).slice(2, 6),
+      promptText: String(originalText || '').slice(0, 300),
+      scores: {
+        clarity: { score: clarity },
+        specificity: { score: specificity },
+        quality: { score: quality },
+      },
+      overall,
+      grade,
+      timestamp: now,
+      type: 'enhanced',
+    });
+
+    prompts.sort((a, b) => Number(b?.updated_at || 0) - Number(a?.updated_at || 0));
+    history.sort((a, b) => Number(b?.ts || 0) - Number(a?.ts || 0));
+
+    await storageSet({
+      pp_prompts: prompts.slice(0, 100),
+      pp_history: history.slice(0, 50),
+      pp_score_history: scoreHistory.slice(0, 100),
+    });
   }
 
   function fbCopy(text) {
@@ -995,6 +1322,15 @@ import { scorePrompt } from './scoring/PromptScorer.js';
       border-radius: 10px; padding: 10px 13px;
       font-size: 12px; color: #fcd34d; line-height: 1.5;
       display: flex; gap: 8px; align-items: flex-start;
+    }
+
+    .pp-backup-row {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      align-items: center;
+      margin-top: -2px;
+      margin-bottom: 2px;
     }
 
     /* ── Section / labels ── */

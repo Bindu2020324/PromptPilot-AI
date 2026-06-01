@@ -43,11 +43,26 @@ async function ensureContent(tabId) {
 
 // ── API proxy ─────────────────────────────────────────────────────────
 
+let isProcessing = false;
+let lastRequestTime = 0;
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'PP_API') {
+    const now = Date.now();
+    if (now - lastRequestTime < 500) {
+      // Duplicate rapid request, ignore
+      sendResponse({ ok: false, error: 'Duplicate request ignored.' });
+      return true;
+    }
+    lastRequestTime = now;
+    if (isProcessing) {
+      sendResponse({ ok: false, error: 'Another request is already in progress. Please wait.' });
+      return true;
+    }
+    isProcessing = true;
     callAPI(msg)
       .then((r) => sendResponse({ ok: true, data: r }))
-      .catch((e) => sendResponse({ ok: false, error: e.message }));
+      .catch((e) => sendResponse({ ok: false, error: e.message }))
+      .finally(() => { isProcessing = false; });
     return true;
   }
 });
@@ -85,9 +100,18 @@ const DOMAIN_CONTEXT = {
     'You are a world-class prompt engineer. Make prompts specific, structured, and highly actionable for modern LLMs.',
 };
 
-function buildSystemPrompt(domain, mode) {
-  const ctx = DOMAIN_CONTEXT[domain] || DOMAIN_CONTEXT.general;
-  return `${ctx}
+function buildSystemPrompt(domain, mode, profileRole, profileStack, profileRules) {
+  let ctx = DOMAIN_CONTEXT[domain] || DOMAIN_CONTEXT.general;
+  
+  let profileCtx = '';
+  if (profileRole || profileStack || profileRules) {
+    profileCtx = '\n\nUSER PROFILE CONTEXT:\nAlways incorporate this context into the enhanced prompt if relevant.\n';
+    if (profileRole) profileCtx += `- Role: ${profileRole}\n`;
+    if (profileStack) profileCtx += `- Tech Stack: ${profileStack}\n`;
+    if (profileRules) profileCtx += `- Coding Rules & Preferences: ${profileRules}\n`;
+  }
+
+  return `${ctx}${profileCtx}
 
 TASK: Transform the user's weak/vague prompt into a structured expert-level prompt.
 MODE: ${mode || 'technical'}
@@ -224,6 +248,8 @@ async function callAPI({
   const sys = customTemplate
     ? buildCustomSystemPrompt(customTemplate)
     : buildSystemPrompt(domain, mode);
+async function callAPI({ prompt, domain, mode, provider, apiKey, profileRole, profileStack, profileRules }) {
+  const sys = buildSystemPrompt(domain, mode, profileRole, profileStack, profileRules);
   const userMsg = `Enhance this prompt: "${prompt}"`;
   let raw = '';
 

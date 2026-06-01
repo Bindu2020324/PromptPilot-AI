@@ -3,27 +3,36 @@
   "version": "1.0.0",
   "type": "module",
   "private": true,
-  "scripts": {
-    "dev": "vite build --watch",
-    "build": "vite build",
-    "preview": "vite preview",
-    "lint": "eslint src/ --max-warnings 0",
-    "format": "prettier --write \"src/**/*.{js,jsx,css}\"",
-    "format:check": "prettier --check \"src/**/*.{js,jsx,css}\""
-  },
+ "scripts": {
+  "dev": "vite build --watch",
+  "build": "vite build",
+  "preview": "vite preview",
+  "lint": "eslint src/ --max-warnings 0",
+  "format": "prettier --write \"src/**/*.{js,jsx,css}\"",
+  "format:check": "prettier --check \"src/**/*.{js,jsx,css}\"",
+  "test": "jest",
+  "test:coverage": "jest --coverage"
+},
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.29.5",
+    "@babel/preset-react": "^7.28.5",
     "@crxjs/vite-plugin": "^2.0.0-beta.23",
     "@eslint/js": "^9.39.4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^4.2.1",
+    "babel-jest": "^30.4.1",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.6.0",
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1",
     "prettier": "^3.8.3",
     "vite": "^5.2.0"
   }
