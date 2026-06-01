@@ -1,6 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════════
 // PromptPilot AI — Content Script (Grammarly-style)
 // ═══════════════════════════════════════════════════════════════════════
+import { scorePrompt } from './scoring/PromptScorer.js';
+
 (function () {
   if (window.__pp_injected) return;
   window.__pp_injected = true;
@@ -68,14 +70,10 @@
 
   // ── Pill button ───────────────────────────────────────────────────────
 
-  function showPill(x, y) {
+  function showPill(x, y, text) {
     if (!pillEl) {
       pillEl = document.createElement('button');
       pillEl.id = '__pp_pill';
-      pillEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white" stroke="white" stroke-width="0.5"/>
-      </svg>`;
-      pillEl.title = 'Enhance with PromptPilot (Ctrl+Shift+E)';
       pillEl.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -86,6 +84,39 @@
         handlePillClick();
       });
       shadowRoot().appendChild(pillEl);
+    }
+
+    let gradeLetter = null;
+    if (text) {
+      try {
+        const result = scorePrompt(text);
+        if (result && result.grade && result.grade.letter) {
+          gradeLetter = result.grade.letter;
+        }
+      } catch (err) {
+        console.error('Error scoring prompt:', err);
+      }
+    }
+
+    // Reset all grade-specific classes
+    pillEl.className = '';
+
+    if (gradeLetter) {
+      pillEl.classList.add('__pp_pill_graded', `pp-grade-${gradeLetter}`);
+      pillEl.innerHTML = `
+        <span class="pp-pill-grade-text">${gradeLetter}</span>
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white" stroke="white" stroke-width="0.5"/>
+        </svg>
+      `;
+      pillEl.title = `Prompt Quality: Grade ${gradeLetter} — Enhance with PromptPilot (Ctrl+Shift+E)`;
+    } else {
+      pillEl.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white" stroke="white" stroke-width="0.5"/>
+        </svg>
+      `;
+      pillEl.title = 'Enhance with PromptPilot (Ctrl+Shift+E)';
     }
 
     // Clamp to viewport
@@ -137,7 +168,8 @@
           e.clientX,
           rect.top < 60
             ? rect.bottom + window.scrollY
-            : rect.top + window.scrollY - 8
+            : rect.top + window.scrollY - 8,
+          text
         );
       } else {
         if (e.target !== pillEl) hidePill();
@@ -758,21 +790,92 @@
     /* ── Pill button ── */
     #__pp_pill {
       position: fixed;
-      width: 38px; height: 38px;
+      height: 38px;
+      min-width: 38px;
       border-radius: 50%;
       background: linear-gradient(135deg, #7c3aed, #4f46e5);
       border: none;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       box-shadow: 0 4px 20px rgba(124,58,237,0.55), 0 0 0 2px rgba(255,255,255,0.15);
-      transition: opacity 0.18s cubic-bezier(.4,0,.2,1), transform 0.18s cubic-bezier(.4,0,.2,1);
+      transition: opacity 0.18s cubic-bezier(.4,0,.2,1), transform 0.18s cubic-bezier(.4,0,.2,1), background 0.22s, box-shadow 0.22s, border-radius 0.18s, padding 0.18s;
       opacity: 0; transform: scale(0.5);
       z-index: 2147483647;
+      padding: 0;
     }
-    #__pp_pill svg { width: 18px; height: 18px; }
+    #__pp_pill svg { width: 18px; height: 18px; flex-shrink: 0; }
     #__pp_pill:hover {
       transform: scale(1.15) !important;
       box-shadow: 0 6px 28px rgba(124,58,237,0.7);
+    }
+
+    /* ── Graded Pills ── */
+    .__pp_pill_graded {
+      padding: 0 10px 0 12px !important;
+      border-radius: 19px !important;
+      gap: 6px;
+    }
+    .pp-pill-grade-text {
+      font-size: 13px;
+      font-weight: 800;
+      color: #ffffff;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+      line-height: 1;
+    }
+
+    /* Grade S */
+    .pp-grade-S {
+      background: linear-gradient(135deg, #fbbf24, #7c3aed) !important;
+      box-shadow: 0 4px 20px rgba(251,191,36,0.55), 0 0 0 2px rgba(255,255,255,0.15) !important;
+    }
+    .pp-grade-S:hover {
+      box-shadow: 0 6px 28px rgba(251,191,36,0.7) !important;
+    }
+
+    /* Grade A */
+    .pp-grade-A {
+      background: linear-gradient(135deg, #34d399, #7c3aed) !important;
+      box-shadow: 0 4px 20px rgba(52,211,153,0.55), 0 0 0 2px rgba(255,255,255,0.15) !important;
+    }
+    .pp-grade-A:hover {
+      box-shadow: 0 6px 28px rgba(52,211,153,0.7) !important;
+    }
+
+    /* Grade B */
+    .pp-grade-B {
+      background: linear-gradient(135deg, #60a5fa, #7c3aed) !important;
+      box-shadow: 0 4px 20px rgba(96,165,250,0.55), 0 0 0 2px rgba(255,255,255,0.15) !important;
+    }
+    .pp-grade-B:hover {
+      box-shadow: 0 6px 28px rgba(96,165,250,0.7) !important;
+    }
+
+    /* Grade C */
+    .pp-grade-C {
+      background: linear-gradient(135deg, #a78bfa, #7c3aed) !important;
+      box-shadow: 0 4px 20px rgba(167,139,250,0.55), 0 0 0 2px rgba(255,255,255,0.15) !important;
+    }
+    .pp-grade-C:hover {
+      box-shadow: 0 6px 28px rgba(167,139,250,0.7) !important;
+    }
+
+    /* Grade D */
+    .pp-grade-D {
+      background: linear-gradient(135deg, #fb923c, #7c3aed) !important;
+      box-shadow: 0 4px 20px rgba(251,146,60,0.55), 0 0 0 2px rgba(255,255,255,0.15) !important;
+    }
+    .pp-grade-D:hover {
+      box-shadow: 0 6px 28px rgba(251,146,60,0.7) !important;
+    }
+
+    /* Grade F */
+    .pp-grade-F {
+      background: linear-gradient(135deg, #f87171, #7c3aed) !important;
+      box-shadow: 0 4px 20px rgba(248,113,113,0.55), 0 0 0 2px rgba(255,255,255,0.15) !important;
+    }
+    .pp-grade-F:hover {
+      box-shadow: 0 6px 28px rgba(248,113,113,0.7) !important;
     }
 
     /* ── Backdrop ── */
