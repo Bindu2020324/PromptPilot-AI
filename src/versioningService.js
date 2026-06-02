@@ -5,6 +5,95 @@
 
 const STORAGE_KEY_PROMPTS = 'pp_prompts';
 const STORAGE_KEY_METADATA = 'pp_metadata';
+const EXPORT_VERSION = 1;
+const MAX_PROMPTS = 100;
+
+function asNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function normalizePromptForDedup(prompt = {}) {
+  return (prompt.original_text || '').trim().toLowerCase();
+}
+
+function sanitizeVersion(version = {}, index = 0) {
+  const now = Date.now();
+  return {
+    version_number: asNumber(version.version_number, index + 1),
+    enhanced_prompt: String(version.enhanced_prompt || ''),
+    clarity_score: asNumber(version.clarity_score),
+    specificity_score: asNumber(version.specificity_score),
+    quality_score: asNumber(version.quality_score),
+    domain_detected: String(version.domain_detected || ''),
+    missing_requirements: Array.isArray(version.missing_requirements)
+      ? version.missing_requirements
+      : [],
+    transformation_insight: String(version.transformation_insight || ''),
+    ambiguities_resolved: Array.isArray(version.ambiguities_resolved)
+      ? version.ambiguities_resolved
+      : [],
+    provider: String(version.provider || 'gemini'),
+    model: String(version.model || 'gemini-pro'),
+    created_at: asNumber(version.created_at, now),
+    change_note: String(version.change_note || `Version ${index + 1}`),
+  };
+}
+
+function sanitizePromptForImport(prompt = {}, index = 0) {
+  const now = Date.now();
+  const id = typeof prompt.id === 'string' && prompt.id.trim()
+    ? prompt.id
+    : `pp_import_${now}_${index}`;
+  const versions = Array.isArray(prompt.versions)
+    ? prompt.versions.map((v, i) => sanitizeVersion(v, i))
+    : [];
+
+  // Keep latest first so app behavior remains consistent.
+  versions.sort((a, b) => b.created_at - a.created_at);
+  versions.forEach((v, i) => {
+    v.version_number = versions.length - i;
+  });
+
+  return {
+    id,
+    original_text: String(prompt.original_text || '').trim(),
+    domain: String(prompt.domain || ''),
+    mode: String(prompt.mode || 'technical'),
+    versions,
+    created_at: asNumber(prompt.created_at, now),
+    updated_at: asNumber(prompt.updated_at, now),
+    tags: Array.isArray(prompt.tags) ? prompt.tags : [],
+  };
+}
+
+function toLegacyHistory(prompts = []) {
+  return prompts
+    .map((prompt) => {
+      const latest = prompt.versions?.[0];
+      if (!latest) return null;
+      return {
+        enhanced_prompt: latest.enhanced_prompt,
+        clarity_score: latest.clarity_score,
+        specificity_score: latest.specificity_score,
+        quality_score: latest.quality_score,
+        domain_detected: latest.domain_detected,
+        missing_requirements: latest.missing_requirements || [],
+        transformation_insight: latest.transformation_insight || '',
+        ambiguities_resolved: latest.ambiguities_resolved || [],
+        provider: latest.provider || 'gemini',
+        model: latest.model || 'gemini-pro',
+        original: prompt.original_text,
+        mode: prompt.mode || 'technical',
+        domain: prompt.domain || '',
+        ts: prompt.updated_at || Date.now(),
+        favorite: false,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 50);
+}
 
 export const versioningService = {
   /**
@@ -63,7 +152,7 @@ export const versioningService = {
       favorite: false,
     };
 
-    const updated = [prompt, ...prompts].slice(0, 100); // Keep max 100 prompts
+    const updated = [prompt, ...prompts].slice(0, MAX_PROMPTS); // Keep max prompts
     await new Promise((res) => {
       chrome.storage.local.set({ [STORAGE_KEY_PROMPTS]: updated }, res);
     });
@@ -194,6 +283,141 @@ export const versioningService = {
     await new Promise((res) => {
       chrome.storage.local.set({ [STORAGE_KEY_PROMPTS]: [] }, res);
     });
+  },
+
+  async exportPrompts() {
+    const prompts = await this.getAllPrompts();
+    const legacyHistory = toLegacyHistory(prompts);
+    return {
+      format: 'promptpilot.prompts',
+      version: EXPORT_VERSION,
+      exported_at: Date.now(),
+      prompt_count: prompts.length,
+      prompts,
+      legacy_history: legacyHistory,
+    };
+  },
+
+  validateImportPayload(payload) {
+    if (!payload || typeof payload !== 'object') {
+      throw new Error('Invalid JSON: expected an object payload.');
+    }
+    if (!Array.isArray(payload.prompts) && !Array.isArray(payload.legacy_history)) {
+      throw new Error('Invalid JSON: expected "prompts" or "legacy_history" array.');
+    }
+
+    let sourcePrompts = Array.isArray(payload.prompts) ? payload.prompts : [];
+    if (sourcePrompts.length === 0 && Array.isArray(payload.legacy_history)) {
+      sourcePrompts = payload.legacy_history.map((item, idx) => ({
+        id: `pp_legacy_import_${Date.now()}_${idx}`,
+        original_text: item.original || '',
+        domain: item.domain || '',
+        mode: item.mode || 'technical',
+        created_at: item.ts || Date.now(),
+        updated_at: item.ts || Date.now(),
+        versions: [
+          {
+            version_number: 1,
+            enhanced_prompt: item.enhanced_prompt || '',
+            clarity_score: item.clarity_score || 0,
+            specificity_score: item.specificity_score || 0,
+            quality_score: item.quality_score || 0,
+            domain_detected: item.domain_detected || '',
+            missing_requirements: item.missing_requirements || [],
+            transformation_insight: item.transformation_insight || '',
+            ambiguities_resolved: item.ambiguities_resolved || [],
+            provider: item.provider || 'gemini',
+            model: item.model || 'gemini-pro',
+            created_at: item.ts || Date.now(),
+            change_note: 'Imported from legacy backup',
+          },
+        ],
+      }));
+    }
+
+    const sanitizedPrompts = sourcePrompts.map((prompt, index) =>
+      sanitizePromptForImport(prompt, index)
+    );
+
+    const validPrompts = sanitizedPrompts.filter(
+      (prompt) =>
+        prompt.original_text &&
+        Array.isArray(prompt.versions) &&
+        prompt.versions.length > 0
+    );
+
+    if (validPrompts.length === 0) {
+      throw new Error('No valid prompts found in import file.');
+    }
+
+    return validPrompts;
+  },
+
+  async importPrompts(payload, options = {}) {
+    const { mode = 'merge' } = options;
+    if (!['merge', 'overwrite'].includes(mode)) {
+      throw new Error('Invalid import mode. Use "merge" or "overwrite".');
+    }
+
+    const importedPrompts = this.validateImportPayload(payload);
+    const existingPrompts = mode === 'overwrite' ? [] : await this.getAllPrompts();
+    const existingByKey = new Map(
+      existingPrompts.map((prompt) => [normalizePromptForDedup(prompt), prompt])
+    );
+
+    let added = 0;
+    let replaced = 0;
+    let skipped = 0;
+    const merged = [...existingPrompts];
+
+    for (const incoming of importedPrompts) {
+      const key = normalizePromptForDedup(incoming);
+      if (!key) {
+        skipped += 1;
+        continue;
+      }
+
+      const existing = existingByKey.get(key);
+      if (!existing) {
+        merged.push(incoming);
+        existingByKey.set(key, incoming);
+        added += 1;
+        continue;
+      }
+
+      if (mode === 'merge') {
+        skipped += 1;
+        continue;
+      }
+
+      const idx = merged.findIndex((p) => p.id === existing.id);
+      if (idx >= 0) merged[idx] = incoming;
+      existingByKey.set(key, incoming);
+      replaced += 1;
+    }
+
+    const dedupedSorted = merged
+      .sort((a, b) => asNumber(b.updated_at) - asNumber(a.updated_at))
+      .slice(0, MAX_PROMPTS);
+    await new Promise((res) => {
+      chrome.storage.local.set(
+        {
+          [STORAGE_KEY_PROMPTS]: dedupedSorted,
+          pp_history: toLegacyHistory(dedupedSorted),
+        },
+        res
+      );
+    });
+
+    return {
+      totalInFile: importedPrompts.length,
+      imported: added + replaced,
+      added,
+      replaced,
+      skipped,
+      mode,
+      prompts: dedupedSorted,
+    };
   },
 
   /**
