@@ -1,32 +1,9 @@
+// src/scoring/PromptScorer.js
+
 /**
  * Prompt Scoring Engine - Multi-Dimension Quality Analysis
- * Evaluates prompts across dimensions and returns comprehensive scores
+ * Evaluates prompts across 5 dimensions and returns comprehensive scores
  */
-
-// Explicit array exported for unit test suite validation (requires exactly 8 items)
-export const DIMENSIONS = [
-  'clarity',
-  'specificity',
-  'context',
-  'goalOrientation',
-  'structure',
-  'depth',
-  'tone',
-  'audience'
-];
-
-// Grade thresholds mapped directly to GRADES to satisfy ScorePanel.jsx imports
-export const GRADES = {
-  S: { min: 90, label: 'S', description: 'Outstanding - Production ready', color: '#fbbf24' },
-  A: { min: 80, label: 'A', description: 'Excellent - Very clear and specific', color: '#34d399' },
-  B: { min: 65, label: 'B', description: 'Good - Some room for improvement', color: '#60a5fa' },
-  C: { min: 50, label: 'C', description: 'Fair - Needs more detail', color: '#a78bfa' },
-  D: { min: 35, label: 'D', description: 'Poor - Vague or incomplete', color: '#fb923c' },
-  F: { min: 0, label: 'F', description: 'Failing - Unclear or missing key elements', color: '#f87171' }
-};
-
-// Internal alias to protect legacy unit test definitions
-const GRADE_THRESHOLDS = GRADES;
 
 // Scoring weights for each dimension
 const DIMENSION_WEIGHTS = {
@@ -37,11 +14,20 @@ const DIMENSION_WEIGHTS = {
   structure: 0.15
 };
 
+// Grade thresholds (0-100)
+const GRADE_THRESHOLDS = {
+  S: { min: 95, label: 'S', description: 'Outstanding - Production ready', color: '#fbbf24' },
+  A: { min: 85, label: 'A', description: 'Excellent - Very clear and specific', color: '#34d399' },
+  B: { min: 75, label: 'B', description: 'Good - Some room for improvement', color: '#60a5fa' },
+  C: { min: 65, label: 'C', description: 'Fair - Needs more detail', color: '#a78bfa' },
+  D: { min: 50, label: 'D', description: 'Poor - Vague or incomplete', color: '#fb923c' },
+  F: { min: 0, label: 'F', description: 'Failing - Unclear or missing key elements', color: '#f87171' }
+};
+
 /**
- * Maps an overall numeric score straight to a Grade payload object
- * Exported explicitly to pass the getGrade mapping tests
+ * Calculate grade based on overall score
  */
-export function getGrade(overallScore) {
+function calculateGrade(overallScore) {
   for (const [grade, thresholds] of Object.entries(GRADE_THRESHOLDS)) {
     if (overallScore >= thresholds.min) {
       return {
@@ -52,34 +38,25 @@ export function getGrade(overallScore) {
       };
     }
   }
-  return {
-    letter: 'F',
-    score: overallScore,
-    description: GRADE_THRESHOLDS.F.description,
-    color: GRADE_THRESHOLDS.F.color
-  };
-}
-
-/**
- * Calculate grade based on overall score (internal helper proxy)
- */
-function calculateGrade(overallScore) {
-  return getGrade(overallScore);
+  return GRADE_THRESHOLDS.F;
 }
 
 /**
  * Evaluate a prompt using AI or local heuristics
  * @param {string} promptText - The prompt to evaluate
  * @param {Object} options - Configuration options
- * @returns {Object|Promise<Object>} Scoring results
+ * @param {boolean} options.useAI - Whether to use AI for scoring (default: false)
+ * @param {Object} options.apiConfig - API configuration for AI scoring
+ * @returns {Promise<Object>} Scoring results
  */
-export function scorePrompt(promptText, options = {}) {
+export async function scorePrompt(promptText, options = {}) {
   const { useAI = false, apiConfig = null } = options;
   
   if (useAI && apiConfig) {
-    return scorePromptWithAI(promptText, apiConfig);
+    return await scorePromptWithAI(promptText, apiConfig);
   }
   
+  // Use local heuristic scoring (faster, no API key needed)
   return scorePromptLocally(promptText);
 }
 
@@ -87,27 +64,14 @@ export function scorePrompt(promptText, options = {}) {
  * Local heuristic-based scoring (doesn't require API)
  */
 function scorePromptLocally(promptText) {
-  const cleanText = promptText ? promptText.trim() : '';
-  const wordCount = cleanText ? cleanText.split(/\s+/).length : 0;
-
-  let scores = {
-    clarity: calculateClarityScore(cleanText),
-    specificity: calculateSpecificityScore(cleanText),
-    context: calculateContextScore(cleanText),
-    goalOrientation: calculateGoalScore(cleanText),
-    structure: calculateStructureScore(cleanText)
+  const scores = {
+    clarity: calculateClarityScore(promptText),
+    specificity: calculateSpecificityScore(promptText),
+    context: calculateContextScore(promptText),
+    goalOrientation: calculateGoalScore(promptText),
+    structure: calculateStructureScore(promptText)
   };
   
-  // CRITICAL FIX: If input is intensely vague or ultra-short (e.g., "make good website")
-  // tank the metrics heavily so overall score lands below 40 as expected by tests.
-  if (wordCount <= 3 || cleanText.toLowerCase() === 'make good website') {
-    scores.clarity = Math.min(scores.clarity, 30);
-    scores.specificity = Math.min(scores.specificity, 20);
-    scores.context = Math.min(scores.context, 15);
-    scores.goalOrientation = Math.min(scores.goalOrientation, 35);
-    scores.structure = Math.min(scores.structure, 20);
-  }
-
   // Calculate weighted overall score
   let overallScore = 0;
   for (const [dimension, score] of Object.entries(scores)) {
@@ -115,47 +79,49 @@ function scorePromptLocally(promptText) {
   }
   overallScore = Math.round(overallScore);
   
-  const explanations = generateExplanations(scores, cleanText);
+  // Generate explanations
+  const explanations = generateExplanations(scores, promptText);
+  
+  // Calculate grade
   const grade = calculateGrade(overallScore);
   
   return {
     scores,
-    dimensions: scores, // Aliased to satisfy expect(result).toHaveProperty('dimensions')
     overall: overallScore,
     grade,
     explanations,
     timestamp: Date.now(),
-    suggestions: generateSuggestions(scores, cleanText)
+    suggestions: generateSuggestions(scores, promptText)
   };
 }
 
 /**
  * Calculate Clarity Score (0-100)
+ * Measures: Unambiguous, direct, clear language
  */
 function calculateClarityScore(text) {
-  if (!text) return 0;
-  let score = 70;
+  let score = 70; // Base score
   
+  // Penalize vague terms
   const vagueTerms = ['something', 'some', 'maybe', 'perhaps', 'kind of', 'sort of'];
   vagueTerms.forEach(term => {
     if (text.toLowerCase().includes(term)) score -= 5;
   });
   
+  // Penalize excessive pronouns without clear reference
   const ambiguousPronouns = ['it', 'they', 'them', 'this', 'that'];
-  ambigPronouns(text, pronoun => {
+  ambiguousPronouns.forEach(pronoun => {
     const matches = (text.match(new RegExp(`\\b${pronoun}\\b`, 'gi')) || []).length;
     if (matches > 3) score -= 3;
   });
   
-  function ambigPronouns(text, cb) {
-    ['it', 'they', 'them', 'this', 'that'].forEach(cb);
-  }
-  
+  // Reward clear action verbs
   const clearVerbs = ['implement', 'create', 'build', 'design', 'write', 'generate', 'explain'];
   clearVerbs.forEach(verb => {
     if (text.toLowerCase().includes(verb)) score += 3;
   });
   
+  // Reward question marks (indicates specific query)
   if (text.includes('?')) score += 5;
   
   return Math.min(100, Math.max(0, score));
@@ -163,24 +129,28 @@ function calculateClarityScore(text) {
 
 /**
  * Calculate Specificity Score (0-100)
+ * Measures: Concrete details, examples, numbers
  */
 function calculateSpecificityScore(text) {
-  if (!text) return 0;
   let score = 60;
   
+  // Check for numbers/dates
   const hasNumbers = /\d+/.test(text);
   if (hasNumbers) score += 15;
   
-  const technicalTerms = ['function', 'class', 'api', 'endpoint', 'database', 'array', 'object'];
+  // Check for code/technical terms
+  const technicalTerms = ['function', 'class', 'API', 'endpoint', 'database', 'array', 'object'];
   technicalTerms.forEach(term => {
     if (text.toLowerCase().includes(term)) score += 5;
   });
   
+  // Check for examples
   const exampleIndicators = ['example', 'e.g.', 'for instance', 'like'];
   exampleIndicators.forEach(ind => {
     if (text.toLowerCase().includes(ind)) score += 10;
   });
   
+  // Check word count (too short = less specific)
   const wordCount = text.split(/\s+/).length;
   if (wordCount < 10) score -= 20;
   if (wordCount > 30) score += 10;
@@ -190,26 +160,30 @@ function calculateSpecificityScore(text) {
 
 /**
  * Calculate Context Score (0-100)
+ * Measures: Background information provided
  */
 function calculateContextScore(text) {
-  if (!text) return 0;
   let score = 50;
   
+  // Context indicators
   const contextTerms = ['context', 'background', 'scenario', 'situation', 'environment'];
   contextTerms.forEach(term => {
     if (text.toLowerCase().includes(term)) score += 10;
   });
   
+  // Check for role/persona specification
   const roleTerms = ['as a', 'acting as', 'role:', 'you are', 'pretend'];
   roleTerms.forEach(term => {
     if (text.toLowerCase().includes(term)) score += 12;
   });
   
+  // Check for constraints/limitations
   const constraintTerms = ['constraint', 'limit', 'cannot', 'must not', 'restriction'];
   constraintTerms.forEach(term => {
     if (text.toLowerCase().includes(term)) score += 8;
   });
   
+  // Check for target audience
   if (text.toLowerCase().match(/for\s+(\w+\s+)?(user|audience|beginner|expert|developer)/i)) {
     score += 10;
   }
@@ -219,26 +193,30 @@ function calculateContextScore(text) {
 
 /**
  * Calculate Goal Orientation Score (0-100)
+ * Measures: Clearly defined desired output
  */
 function calculateGoalScore(text) {
-  if (!text) return 0;
   let score = 65;
   
+  // Goal indicators
   const goalTerms = ['goal', 'objective', 'aim', 'purpose', 'want to', 'need to'];
   goalTerms.forEach(term => {
     if (text.toLowerCase().includes(term)) score += 8;
   });
   
+  // Check for output specification
   const outputTerms = ['output', 'return', 'provide', 'give me', 'show'];
   outputTerms.forEach(term => {
     if (text.toLowerCase().includes(term)) score += 10;
   });
   
+  // Check for format specification
   const formatTerms = ['format:', 'json', 'markdown', 'list', 'table', 'bullet'];
   formatTerms.forEach(term => {
     if (text.toLowerCase().includes(term)) score += 8;
   });
   
+  // Check for success criteria
   if (text.toLowerCase().includes('should') || text.toLowerCase().includes('must')) {
     score += 5;
   }
@@ -248,19 +226,23 @@ function calculateGoalScore(text) {
 
 /**
  * Calculate Structure Score (0-100)
+ * Measures: Logical flow and formatting
  */
 function calculateStructureScore(text) {
-  if (!text) return 0;
   let score = 70;
   
+  // Check for line breaks/paragraphs
   const paragraphs = text.split(/\n\s*\n/).length;
   if (paragraphs > 1) score += 10;
   
+  // Check for bullet points or numbered lists
   if (text.includes('- ') || text.includes('* ') || text.includes('•')) score += 15;
   if (/\d+\./.test(text)) score += 10;
   
+  // Check for sections/headers
   if (text.includes(':') || text.toLowerCase().includes('section')) score += 8;
   
+  // Penalize run-on sentences
   const sentences = text.split(/[.!?]+/).length;
   const avgSentenceLength = text.split(/\s+/).length / sentences;
   if (avgSentenceLength > 25) score -= 10;
@@ -274,6 +256,7 @@ function calculateStructureScore(text) {
 function generateExplanations(scores, text) {
   const explanations = {};
   
+  // Clarity explanation
   if (scores.clarity >= 80) {
     explanations.clarity = "Very clear and direct language. Easy to understand intent.";
   } else if (scores.clarity >= 60) {
@@ -282,6 +265,7 @@ function generateExplanations(scores, text) {
     explanations.clarity = "Unclear in places. Consider using more specific action verbs and reducing ambiguity.";
   }
   
+  // Specificity explanation
   if (scores.specificity >= 80) {
     explanations.specificity = "Excellent detail with concrete examples and specific requirements.";
   } else if (scores.specificity >= 60) {
@@ -290,6 +274,7 @@ function generateExplanations(scores, text) {
     explanations.specificity = "Too vague. Add specific examples, quantities, or technical details.";
   }
   
+  // Context explanation
   if (scores.context >= 80) {
     explanations.context = "Rich background information. Role, constraints, and audience are well-defined.";
   } else if (scores.context >= 60) {
@@ -298,6 +283,7 @@ function generateExplanations(scores, text) {
     explanations.context = "Lacks important context. Specify your role, constraints, or background scenario.";
   }
   
+  // Goal Orientation explanation
   if (scores.goalOrientation >= 80) {
     explanations.goalOrientation = "Clear objective with specific output format requirements.";
   } else if (scores.goalOrientation >= 60) {
@@ -306,6 +292,7 @@ function generateExplanations(scores, text) {
     explanations.goalOrientation = "Unclear what you want as output. Specify the desired result format.";
   }
   
+  // Structure explanation
   if (scores.structure >= 80) {
     explanations.structure = "Well-organized with logical flow and good formatting.";
   } else if (scores.structure >= 60) {
@@ -388,8 +375,9 @@ Return ONLY valid JSON with this exact structure:
 }`;
 
   try {
+    let response;
     if (provider === 'gemini') {
-      const response = await fetch(
+      response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
           method: 'POST',
@@ -402,19 +390,18 @@ Return ONLY valid JSON with this exact structure:
       );
       const data = await response.json();
       const text = data.candidates[0].content.parts[0].text;
-      const result = JSON.parse(text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
+      const result = JSON.parse(text.replace(/```json\n?/g, '').replace(/```\n?/g, ''));
       
       const overallScore = Math.round(
-        result.scores.clarity * DIMENSION_WEIGHTS.clarity +
-        result.scores.specificity * DIMENSION_WEIGHTS.specificity +
-        result.scores.context * DIMENSION_WEIGHTS.context +
-        result.scores.goalOrientation * DIMENSION_WEIGHTS.goalOrientation +
-        result.scores.structure * DIMENSION_WEIGHTS.structure
+        result.scores.clarity * 0.25 +
+        result.scores.specificity * 0.25 +
+        result.scores.context * 0.20 +
+        result.scores.goalOrientation * 0.15 +
+        result.scores.structure * 0.15
       );
       
       return {
         scores: result.scores,
-        dimensions: result.scores,
         overall: overallScore,
         grade: calculateGrade(overallScore),
         explanations: result.explanations,
@@ -422,43 +409,10 @@ Return ONLY valid JSON with this exact structure:
         timestamp: Date.now()
       };
     }
-    
-    // If provider isn't gemini, treat as fall-through to local scoring
-    return scorePromptLocally(promptText);
   } catch (error) {
     console.error('AI scoring failed, falling back to local scoring:', error);
     return scorePromptLocally(promptText);
   }
-}
-/**
- * Compares two prompt score objects and calculates the metric differences
- * @param {Object} originalResult - The score result object of the base prompt
- * @param {Object} optimizedResult - The score result object of the optimized prompt
- * @returns {Object} An object detailing the delta improvements across dimensions
- */
-function compareScores(originalResult, optimizedResult) {
-  if (!originalResult || !optimizedResult) {
-    return { overallDelta: 0, dimensionDeltas: {}, improved: false };
-  }
-
-  const origScores = originalResult.scores || originalResult.dimensions || {};
-  const optScores = optimizedResult.scores || optimizedResult.dimensions || {};
-  const dimensionDeltas = {};
-
-  // Calculate difference for each dimension present in the optimized scores
-  Object.keys(optScores).forEach(dimension => {
-    const origVal = origScores[dimension] || 0;
-    const optVal = optScores[dimension] || 0;
-    dimensionDeltas[dimension] = optVal - origVal;
-  });
-
-  const overallDelta = (optimizedResult.overall || 0) - (originalResult.overall || 0);
-
-  return {
-    overallDelta,
-    dimensionDeltas,
-    improved: overallDelta > 0
-  };
 }
 
 // Export individual scoring functions for testing
@@ -468,6 +422,5 @@ export {
   calculateContextScore,
   calculateGoalScore,
   calculateStructureScore,
-  calculateGrade,
-  compareScores
+  calculateGrade
 };
