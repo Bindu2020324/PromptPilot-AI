@@ -49,12 +49,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type !== 'PP_API') return;
 
   const now = Date.now();
+  // debounce rapid requests
   if (now - lastRequestTime < 500) {
-    // Duplicate rapid request, ignore
     sendResponse({ ok: false, error: 'Duplicate request ignored.' });
     return true;
   }
-  
+
   lastRequestTime = now;
   if (isProcessing) {
     sendResponse({ ok: false, error: 'Another request is already in progress. Please wait.' });

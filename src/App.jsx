@@ -1371,6 +1371,7 @@ export default function App() {
 
   const handleSaveSearch = async (query) => {
     const trimmed = query?.trim();
+    // Only save searches that are at least 3 characters long
     if (!trimmed || trimmed.length < 3) return;
     const updated = await versioningService.saveSearch(query);
     if (updated) setRecentSearches(updated);
@@ -1958,7 +1959,7 @@ export default function App() {
 
         {/* Recent Searches Quick Access */}
         {!loading && !result && recentSearches.length > 0 && (
-          <div style={{ animation: 'fadeUp 0.3s ease', marginBottom: 12 }}>
+          <div style={{ animation: 'fadeUp 0.3s ease', marginBottom: 14 }}>
             <Label>Recent Searches</Label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
               {recentSearches.map((s, i) => (
