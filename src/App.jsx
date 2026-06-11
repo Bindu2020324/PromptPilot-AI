@@ -1373,7 +1373,7 @@ export default function App() {
     const trimmed = query?.trim();
     // Only save searches that are at least 3 characters long
     if (!trimmed || trimmed.length < 3) return;
-    const updated = await versioningService.saveSearch(query);
+    const updated = await versioningService.saveSearch(trimmed);
     if (updated) setRecentSearches(updated);
   };
 
