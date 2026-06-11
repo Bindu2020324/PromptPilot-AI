@@ -298,7 +298,11 @@ export const versioningService = {
    */
   async clearAll() {
     await new Promise((res) => {
-      chrome.storage.local.set({ [STORAGE_KEY_PROMPTS]: [] }, res);
+      chrome.storage.local.set({ 
+        [STORAGE_KEY_PROMPTS]: [],
+        [STORAGE_KEY_SEARCHES]: [],
+        pp_history: []
+      }, res);
     });
   },
 

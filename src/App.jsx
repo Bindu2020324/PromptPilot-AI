@@ -1364,6 +1364,7 @@ export default function App() {
       await versioningService.clearAll();
       setPrompts([]);
       setHistory([]);
+      setRecentSearches([]);
       storage.set({ pp_history: [] });
     })();
   }
