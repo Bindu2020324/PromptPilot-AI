@@ -1370,7 +1370,8 @@ export default function App() {
   }
 
   const handleSaveSearch = async (query) => {
-    if (!query || !query.trim()) return;
+    const trimmed = query?.trim();
+    if (!trimmed || trimmed.length < 3) return;
     const updated = await versioningService.saveSearch(query);
     if (updated) setRecentSearches(updated);
   };
@@ -1957,7 +1958,7 @@ export default function App() {
 
         {/* Recent Searches Quick Access */}
         {!loading && !result && recentSearches.length > 0 && (
-          <div style={{ animation: 'fadeUp 0.3s ease', marginBottom: 8 }}>
+          <div style={{ animation: 'fadeUp 0.3s ease', marginBottom: 12 }}>
             <Label>Recent Searches</Label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
               {recentSearches.map((s, i) => (
@@ -1992,7 +1993,7 @@ export default function App() {
 
         {/* Recent Prompts Panel */}
         {!loading && !result && prompts.length > 0 && (
-          <div style={{ animation: 'fadeUp 0.3s ease', marginBottom: 4 }}>
+          <div style={{ animation: 'fadeUp 0.3s ease', marginBottom: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <Label>Recent Prompts</Label>
               <div style={{ display: 'flex', gap: 10 }}>
