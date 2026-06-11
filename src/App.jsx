@@ -693,6 +693,7 @@ function HistoryScreen({
   showFavoritesOnly,
   setShowFavoritesOnly,
   toggleFavorite,
+  onSaveSearch,
   onExportJSON,
   onExportMD,
 }) {
@@ -816,8 +817,8 @@ function HistoryScreen({
           placeholder="Search prompts..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSaveSearch(searchQuery)}
-            onBlur={() => handleSaveSearch(searchQuery)}
+            onKeyDown={(e) => e.key === 'Enter' && onSaveSearch(searchQuery)}
+            onBlur={() => onSaveSearch(searchQuery)}
           style={{
             flex: 1,
             padding: '8px 10px',
@@ -1550,6 +1551,7 @@ export default function App() {
         showFavoritesOnly={showFavoritesOnly}
         setShowFavoritesOnly={setShowFavoritesOnly}
         toggleFavorite={toggleFavorite}
+        onSaveSearch={handleSaveSearch}
         onExportJSON={handleExportJSON}
         onExportMD={handleExportMarkdown}
       />
