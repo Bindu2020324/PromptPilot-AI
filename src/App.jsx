@@ -816,6 +816,8 @@ function HistoryScreen({
           placeholder="Search prompts..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSaveSearch(searchQuery)}
+            onBlur={() => handleSaveSearch(searchQuery)}
           style={{
             flex: 1,
             padding: '8px 10px',
@@ -1048,6 +1050,7 @@ export default function App() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [prompts, setPrompts] = useState([]);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
+  const [recentSearches, setRecentSearches] = useState([]);
   const [compareVersion, setCompareVersion] = useState(null);
   const [input, setInput] = useState('');
   const [domain, setDomain] = useState('');
@@ -1164,6 +1167,10 @@ export default function App() {
           setHistory(pp_history || []);
         });
       }
+
+      // Load recent searches
+      const searches = await versioningService.getRecentSearches();
+      setRecentSearches(searches);
     })();
   }, []);
 
@@ -1335,9 +1342,14 @@ export default function App() {
     await storage.set({ pp_prompts: updated });
   }
 
-  function handleHistorySelect(prompt) {
+  async function handleHistorySelect(prompt) {
     const latestVersion = prompt.versions?.[0];
     if (!latestVersion) return;
+
+    // Move selected prompt to top of recent list
+    const updated = await versioningService.touchPrompt(prompt.id);
+    setPrompts(updated);
+
     setInput(prompt.original_text);
     setResult(latestVersion);
     setMode(prompt.mode || 'technical');
@@ -1354,6 +1366,12 @@ export default function App() {
       storage.set({ pp_history: [] });
     })();
   }
+
+  const handleSaveSearch = async (query) => {
+    if (!query || !query.trim()) return;
+    const updated = await versioningService.saveSearch(query);
+    if (updated) setRecentSearches(updated);
+  };
 
   const handleExportJSON = () => {
     try {
@@ -1933,6 +1951,41 @@ export default function App() {
             ))}
           </div>
         </div>
+
+        {/* Recent Searches Quick Access */}
+        {!loading && !result && recentSearches.length > 0 && (
+          <div style={{ animation: 'fadeUp 0.3s ease', marginBottom: 8 }}>
+            <Label>Recent Searches</Label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+              {recentSearches.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setSearchQuery(s);
+                    setScreen('history');
+                  }}
+                  style={{
+                    padding: '3px 10px',
+                    borderRadius: 12,
+                    fontSize: 10,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-faint)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-light)'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                >
+                  🔍 {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Recent Prompts Panel */}
         {!loading && !result && prompts.length > 0 && (

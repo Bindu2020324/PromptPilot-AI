@@ -5,6 +5,7 @@
 
 const STORAGE_KEY_PROMPTS = 'pp_prompts';
 const STORAGE_KEY_METADATA = 'pp_metadata';
+const STORAGE_KEY_SEARCHES = 'pp_recent_searches';
 const EXPORT_VERSION = 1;
 const MAX_PROMPTS = 100;
 
@@ -199,6 +200,22 @@ export const versioningService = {
   },
 
   /**
+   * Update the updated_at timestamp of a prompt (moves it to top of recent)
+   */
+  async touchPrompt(promptId) {
+    const prompts = await this.getAllPrompts();
+    const now = Date.now();
+    const updated = prompts.map((p) => 
+      p.id === promptId ? { ...p, updated_at: now } : p
+    ).sort((a, b) => b.updated_at - a.updated_at);
+    
+    await new Promise((res) => {
+      chrome.storage.local.set({ [STORAGE_KEY_PROMPTS]: updated }, res);
+    });
+    return updated;
+  },
+
+  /**
    * Get a specific version of a prompt
    */
   async getVersion(promptId, versionNumber) {
@@ -283,6 +300,27 @@ export const versioningService = {
     await new Promise((res) => {
       chrome.storage.local.set({ [STORAGE_KEY_PROMPTS]: [] }, res);
     });
+  },
+
+  /**
+   * Recent Search History
+   */
+  async getRecentSearches() {
+    return new Promise((res) => {
+      chrome.storage.local.get([STORAGE_KEY_SEARCHES], (data) => {
+        res(data[STORAGE_KEY_SEARCHES] || []);
+      });
+    });
+  },
+
+  async saveSearch(query) {
+    if (!query || !query.trim() || query.length < 3) return;
+    const searches = await this.getRecentSearches();
+    const updated = [query.trim(), ...searches.filter(s => s !== query.trim())].slice(0, 5);
+    await new Promise((res) => {
+      chrome.storage.local.set({ [STORAGE_KEY_SEARCHES]: updated }, res);
+    });
+    return updated;
   },
 
   async exportPrompts() {
