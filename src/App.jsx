@@ -992,7 +992,7 @@ function HistoryScreen({
                   >
                     {latestVersion.domain_detected || prompt.domain || '—'} ·{' '}
                     {prompt.mode} ·{' '}
-                    {new Date(prompt.updated_at).toLocaleDateString()}
+                    {new Date(prompt.updated_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                   </div>
                   <div
                     style={{
@@ -1933,6 +1933,72 @@ export default function App() {
             ))}
           </div>
         </div>
+
+        {/* Recent Prompts Panel */}
+        {!loading && !result && prompts.length > 0 && (
+          <div style={{ animation: 'fadeUp 0.3s ease', marginBottom: 4 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Label>Recent Prompts</Label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button 
+                  onClick={() => setScreen('history')}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent-light)', fontSize: 10, cursor: 'pointer', padding: 0 }}
+                >
+                  View All →
+                </button>
+                <button 
+                  onClick={handleClearHistory}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent-red)', fontSize: 10, cursor: 'pointer', padding: 0, opacity: 0.7 }}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {prompts.slice(0, 5).map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => handleHistorySelect(p)}
+                  title="Click to reload this prompt"
+                  style={{
+                    textAlign: 'left',
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
+                    fontSize: 11.5,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderColor = 'var(--border-focus)';
+                    e.currentTarget.style.background = 'var(--bg-hover)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                    e.currentTarget.style.background = 'var(--bg-tertiary)';
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.6 }}>
+                    <span style={{ fontSize: 9, fontWeight: 600 }}>
+                      {new Date(p.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {p.domain || 'General'} · {p.mode}
+                    </span>
+                  </div>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {p.original_text}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Error */}
         {error &&
