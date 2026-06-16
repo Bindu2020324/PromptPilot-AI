@@ -1,3 +1,9 @@
+
+import BackupControls from './BackupControls';
+
+
+<BackupControls />
+
 import TemplateManager from "./components/TemplateManager";
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { versioningService } from './versioningService';
