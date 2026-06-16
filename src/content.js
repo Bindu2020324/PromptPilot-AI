@@ -579,7 +579,6 @@ import { scorePrompt } from './scoring/PromptScorer.js';
       );
     });
 
-<<<<<<< HEAD
   // ── Render result ─────────────────────────────────────────────────────
 
   function renderResult(r, originalText, el) {
