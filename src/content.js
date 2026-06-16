@@ -1,6 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════════
 // PromptPilot AI — Content Script (Grammarly-style)
 // ═══════════════════════════════════════════════════════════════════════
+import { scorePrompt } from './scoring/PromptScorer.js';
+
 (function () {
   if (window.__pp_injected) return;
   window.__pp_injected = true;
@@ -33,7 +35,6 @@
   let debounceT = null;
 
   // ── Shadow DOM host ───────────────────────────────────────────────────
-  // Using Shadow DOM isolates our CSS completely from the host page
   let shadowHost = null;
   let shadow = null;
 
@@ -50,12 +51,10 @@
     document.documentElement.appendChild(shadowHost);
     shadow = shadowHost.attachShadow({ mode: 'open' });
 
-    // Inject all styles into shadow root
     const styleEl = document.createElement('style');
     styleEl.textContent = SHADOW_CSS;
     shadow.appendChild(styleEl);
 
-    // Container for pill + overlay
     const root = document.createElement('div');
     root.id = '__pp_container';
     shadow.appendChild(root);
@@ -68,14 +67,10 @@
 
   // ── Pill button ───────────────────────────────────────────────────────
 
-  function showPill(x, y) {
+  function showPill(x, y, text) {
     if (!pillEl) {
       pillEl = document.createElement('button');
       pillEl.id = '__pp_pill';
-      pillEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white" stroke="white" stroke-width="0.5"/>
-      </svg>`;
-      pillEl.title = 'Enhance with PromptPilot (Ctrl+Shift+E)';
       pillEl.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -88,9 +83,39 @@
       shadowRoot().appendChild(pillEl);
     }
 
-    // Clamp to viewport
-    const VW = window.innerWidth,
-      VH = window.innerHeight;
+    let gradeLetter = null;
+    if (text) {
+      try {
+        const result = scorePrompt(text);
+        if (result && result.grade && result.grade.letter) {
+          gradeLetter = result.grade.letter;
+        }
+      } catch (err) {
+        console.error('Error scoring prompt:', err);
+      }
+    }
+
+    pillEl.className = '';
+
+    if (gradeLetter) {
+      pillEl.classList.add('__pp_pill_graded', `pp-grade-${gradeLetter}`);
+      pillEl.innerHTML = `
+        <span class="pp-pill-grade-text">${gradeLetter}</span>
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white" stroke="white" stroke-width="0.5"/>
+        </svg>
+      `;
+      pillEl.title = `Prompt Quality: Grade ${gradeLetter} — Enhance with PromptPilot (Ctrl+Shift+E)`;
+    } else {
+      pillEl.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white" stroke="white" stroke-width="0.5"/>
+        </svg>
+      `;
+      pillEl.title = 'Enhance with PromptPilot (Ctrl+Shift+E)';
+    }
+
+    const VW = window.innerWidth, VH = window.innerHeight;
     const px = Math.min(Math.max(x, 12), VW - 52);
     const py = Math.min(Math.max(y - 52, 8), VH - 52);
 
@@ -100,7 +125,6 @@
     pillEl.style.transform = 'scale(1)';
     pillEl.style.pointerEvents = 'all';
     shadowHost.style.pointerEvents = 'none';
-    pillEl.style.pointerEvents = 'all';
   }
 
   function hidePill() {
@@ -124,20 +148,19 @@
       const text = sel?.toString().trim();
       if (text && text.length > 3) {
         lastSel = text;
-        // Store range for later replacement
         try {
           selRange = sel.getRangeAt(0).cloneRange();
         } catch (_) {
           selRange = null;
         }
-        // Also track which element owns the selection
         activeField = document.activeElement;
         const rect = sel.getRangeAt(0).getBoundingClientRect();
         showPill(
           e.clientX,
           rect.top < 60
             ? rect.bottom + window.scrollY
-            : rect.top + window.scrollY - 8
+            : rect.top + window.scrollY - 8,
+          text
         );
       } else {
         if (e.target !== pillEl) hidePill();
@@ -155,7 +178,6 @@
       hidePill();
       closeOverlay();
     }
-    // Ctrl/Cmd + Shift + E
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'E') {
       e.preventDefault();
       const sel = window.getSelection()?.toString().trim();
@@ -200,7 +222,6 @@
     overlayEl = el;
     shadowHost.style.pointerEvents = 'all';
 
-    // Position overlay smartly near selection
     positionOverlay();
     window.addEventListener('resize', positionOverlay);
 
@@ -211,16 +232,11 @@
     if (!overlayEl) return;
     const box = overlayEl.querySelector('#__pp_box');
     if (!box) return;
-    // Try to position near selection, fallback to center
-    let top = '50%',
-      left = '50%',
-      transform = 'translate(-50%,-50%)';
+    let top = '50%', left = '50%', transform = 'translate(-50%,-50%)';
     if (selRange) {
       const rect = selRange.getBoundingClientRect();
-      const VW = window.innerWidth,
-        VH = window.innerHeight;
-      const bh = 580,
-        bw = 540;
+      const VW = window.innerWidth, VH = window.innerHeight;
+      const bh = 580, bw = 540;
       let t = rect.bottom + 12;
       let l = rect.left;
       if (t + bh > VH - 20) t = rect.top - bh - 12;
@@ -242,175 +258,130 @@
     window.removeEventListener('resize', positionOverlay);
   }
 
-  // ── Build overlay HTML ────────────────────────────────────────────────
-
   function buildOverlayHTML(text) {
     const preview = esc(text.slice(0, 180)) + (text.length > 180 ? '…' : '');
     return `
-<div id="__pp_backdrop"></div>
-<div id="__pp_box" role="dialog" aria-label="PromptPilot AI">
-
-  <!-- Header -->
-  <div id="__pp_header">
-    <div id="__pp_logo">
-      <div id="__pp_logomark">P</div>
-      <span id="__pp_logotext">PromptPilot AI</span>
-      <span id="__pp_badge">Copilot</span>
-    </div>
-    <button id="__pp_close" title="Close (Esc)">✕</button>
-  </div>
-
-  <!-- Body -->
-  <div id="__pp_body">
-
-    <!-- No key warning -->
-    <div id="__pp_nokey" style="display:none">
-      ⚠ No API key — click the PromptPilot icon in your toolbar → ⚙ Settings to add one.
-    </div>
-
-    <div class="pp-backup-row">
-      <button id="__pp_export_btn" class="pp-btn-ghost" type="button">Export Prompts</button>
-      <button id="__pp_import_btn" class="pp-btn-ghost" type="button">Import Prompts</button>
-      <input id="__pp_import_file" type="file" accept="application/json,.json" style="display:none" />
-    </div>
-
-    <!-- Original -->
-    <div class="pp-section">
-      <div class="pp-label">Original Prompt</div>
-      <div id="__pp_original" class="pp-original-box">${preview}</div>
-    </div>
-
-    <!-- Domain + Mode row -->
-    <div class="pp-row">
-      <div style="flex:1">
-        <div class="pp-label">Domain</div>
-        <select id="__pp_domain" class="pp-select">
-          <option value="">Auto-detect</option>
-          <option value="frontend">Frontend Dev</option>
-          <option value="backend">Backend Dev</option>
-          <option value="fullstack">Full Stack</option>
-          <option value="uiux">UI/UX Design</option>
-          <option value="writing">Content Writing</option>
-          <option value="marketing">Marketing</option>
-          <option value="research">Research</option>
-          <option value="resume">Resume</option>
-          <option value="interview">Interview Prep</option>
-          <option value="business">Business Strategy</option>
-          <option value="youtube">YouTube Script</option>
-          <option value="social">Social Media</option>
-          <option value="education">Education</option>
-          <option value="dsa">DSA / CP</option>
-        </select>
-      </div>
-      <div style="flex:1">
-        <div class="pp-label">Mode</div>
-        <select id="__pp_mode" class="pp-select">
-          <option value="technical">Technical</option>
-          <option value="senior">Senior Dev</option>
-          <option value="creative">Creative</option>
-          <option value="concise">Concise</option>
-          <option value="detailed">Detailed</option>
-          <option value="startup">Startup Style</option>
-          <option value="beginner">Beginner</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Enhance button -->
-    <button id="__pp_forge_btn" class="pp-btn-primary">
-      <span id="__pp_btn_text">✦ Enhance Prompt</span>
-    </button>
-
-    <!-- Error -->
-    <div id="__pp_error" class="pp-error" style="display:none"></div>
-
-    <!-- Loading -->
-    <div id="__pp_loading" style="display:none" class="pp-loading">
-      <div class="pp-spinner"></div>
-      <span>Analyzing intent · Injecting expertise…</span>
-    </div>
-
-    <!-- Result (hidden until API returns) -->
-    <div id="__pp_result" style="display:none">
-
-      <!-- Score bar -->
-      <div id="__pp_scores" class="pp-scores">
-        <div class="pp-score-item">
-          <div class="pp-score-label">Clarity</div>
-          <div class="pp-score-bar"><div class="pp-score-fill clarity-fill" id="__pp_clarity_bar"></div></div>
-          <div class="pp-score-num" id="__pp_clarity_num" style="color:#a78bfa">—</div>
+    <div id="__pp_backdrop"></div>
+    <div id="__pp_box" role="dialog" aria-label="PromptPilot AI">
+      <div id="__pp_header">
+        <div id="__pp_logo">
+          <div id="__pp_logomark">P</div>
+          <span id="__pp_logotext">PromptPilot AI</span>
+          <span id="__pp_badge">Copilot</span>
         </div>
-        <div class="pp-score-item">
-          <div class="pp-score-label">Specificity</div>
-          <div class="pp-score-bar"><div class="pp-score-fill spec-fill" id="__pp_spec_bar"></div></div>
-          <div class="pp-score-num" id="__pp_spec_num" style="color:#34d399">—</div>
+        <button id="__pp_close" title="Close (Esc)">✕</button>
+      </div>
+      <div id="__pp_body">
+        <div id="__pp_nokey" style="display:none">
+          ⚠ No API key — click the PromptPilot icon in your toolbar → ⚙ Settings to add one.
         </div>
-        <div class="pp-score-item">
-          <div class="pp-score-label">Quality</div>
-          <div class="pp-score-bar"><div class="pp-score-fill qual-fill" id="__pp_qual_bar"></div></div>
-          <div class="pp-score-num" id="__pp_qual_num" style="color:#60a5fa">—</div>
+        <div class="pp-backup-row">
+          <button id="__pp_export_btn" class="pp-btn-ghost" type="button">Export Prompts</button>
+          <button id="__pp_import_btn" class="pp-btn-ghost" type="button">Import Prompts</button>
+          <input id="__pp_import_file" type="file" accept="application/json,.json" style="display:none" />
         </div>
-      </div>
-
-      <!-- Domain badge -->
-      <div class="pp-domain-row">
-        <span class="pp-domain-badge" id="__pp_domain_badge">—</span>
-        <span class="pp-insight" id="__pp_insight_text"></span>
-      </div>
-
-      <!-- Tab switcher: Enhanced / Diff -->
-      <div id="__pp_tabs" class="pp-tabs">
-        <button class="pp-tab pp-tab-active" data-tab="enhanced">Enhanced</button>
-        <button class="pp-tab" data-tab="diff">Compare Changes</button>
-        <button class="pp-tab" data-tab="added">What Was Added</button>
-      </div>
-
-      <!-- Enhanced prompt -->
-      <div id="__pp_tab_enhanced" class="pp-tab-panel">
-        <div class="pp-prompt-box">
-          <div class="pp-prompt-header">
-            <span class="pp-prompt-label">
-              <span class="pp-green-dot"></span> Enhanced Prompt
-            </span>
-            <button id="__pp_copy_enhanced" class="pp-btn-ghost">Copy</button>
+        <div class="pp-section">
+          <div class="pp-label">Original Prompt</div>
+          <div id="__pp_original" class="pp-original-box">${preview}</div>
+        </div>
+        <div class="pp-row">
+          <div style="flex:1">
+            <div class="pp-label">Domain</div>
+            <select id="__pp_domain" class="pp-select">
+              <option value="">Auto-detect</option>
+              <option value="frontend">Frontend Dev</option>
+              <option value="backend">Backend Dev</option>
+              <option value="fullstack">Full Stack</option>
+              <option value="uiux">UI/UX Design</option>
+              <option value="writing">Content Writing</option>
+              <option value="marketing">Marketing</option>
+              <option value="research">Research</option>
+              <option value="resume">Resume</option>
+              <option value="interview">Interview Prep</option>
+              <option value="business">Business Strategy</option>
+              <option value="youtube">YouTube Script</option>
+              <option value="social">Social Media</option>
+              <option value="education">Education</option>
+              <option value="dsa">DSA / CP</option>
+              <optgroup id="__pp_custom_templates_group" label="Custom Templates" style="display:none"></optgroup>
+            </select>
           </div>
-          <div id="__pp_enhanced_text" class="pp-prompt-body"></div>
+          <div style="flex:1">
+            <div class="pp-label">Mode</div>
+            <select id="__pp_mode" class="pp-select">
+              <option value="technical">Technical</option>
+              <option value="senior">Senior Dev</option>
+              <option value="creative">Creative</option>
+              <option value="concise">Concise</option>
+              <option value="detailed">Detailed</option>
+              <option value="startup">Startup Style</option>
+              <option value="beginner">Beginner</option>
+            </select>
+          </div>
+        </div>
+        <button id="__pp_forge_btn" class="pp-btn-primary">
+          <span id="__pp_btn_text">✦ Enhance Prompt</span>
+        </button>
+        <div id="__pp_error" class="pp-error" style="display:none"></div>
+        <div id="__pp_loading" style="display:none" class="pp-loading">
+          <div class="pp-spinner"></div>
+          <span>Analyzing intent · Injecting expertise…</span>
+        </div>
+        <div id="__pp_result" style="display:none">
+          <div id="__pp_scores" class="pp-scores">
+            <div class="pp-score-item">
+              <div class="pp-score-label">Clarity</div>
+              <div class="pp-score-bar"><div class="pp-score-fill clarity-fill" id="__pp_clarity_bar"></div></div>
+              <div class="pp-score-num" id="__pp_clarity_num" style="color:#a78bfa">—</div>
+            </div>
+            <div class="pp-score-item">
+              <div class="pp-score-label">Specificity</div>
+              <div class="pp-score-bar"><div class="pp-score-fill spec-fill" id="__pp_spec_bar"></div></div>
+              <div class="pp-score-num" id="__pp_spec_num" style="color:#34d399">—</div>
+            </div>
+            <div class="pp-score-item">
+              <div class="pp-score-label">Quality</div>
+              <div class="pp-score-bar"><div class="pp-score-fill qual-fill" id="__pp_qual_bar"></div></div>
+              <div class="pp-score-num" id="__pp_qual_num" style="color:#60a5fa">—</div>
+            </div>
+          </div>
+          <div class="pp-domain-row">
+            <span class="pp-domain-badge" id="__pp_domain_badge">—</span>
+            <span class="pp-insight" id="__pp_insight_text"></span>
+          </div>
+          <div id="__pp_tabs" class="pp-tabs">
+            <button class="pp-tab pp-tab-active" data-tab="enhanced">Enhanced</button>
+            <button class="pp-tab" data-tab="diff">Compare Changes</button>
+            <button class="pp-tab" data-tab="added">What Was Added</button>
+          </div>
+          <div id="__pp_tab_enhanced" class="pp-tab-panel">
+            <div class="pp-prompt-box">
+              <div class="pp-prompt-header">
+                <span class="pp-prompt-label"><span class="pp-green-dot"></span> Enhanced Prompt</span>
+                <button id="__pp_copy_enhanced" class="pp-btn-ghost">Copy</button>
+              </div>
+              <div id="__pp_enhanced_text" class="pp-prompt-body"></div>
+            </div>
+          </div>
+          <div id="__pp_tab_diff" class="pp-tab-panel" style="display:none">
+            <div class="pp-diff-legend">
+              <span class="pp-diff-rem-badge">Removed</span>
+              <span class="pp-diff-add-badge">Added</span>
+            </div>
+            <div id="__pp_diff_body" class="pp-prompt-body pp-diff-body"></div>
+          </div>
+          <div id="__pp_tab_added" class="pp-tab-panel" style="display:none">
+            <div id="__pp_tags_row" class="pp-tags-row"></div>
+            <div id="__pp_ambig_row" class="pp-tags-row" style="margin-top:8px"></div>
+          </div>
+          <div id="__pp_actions" class="pp-actions">
+            <button id="__pp_replace_btn" class="pp-btn-primary pp-btn-green">✓ Replace Original</button>
+            <button id="__pp_copy_btn" class="pp-btn-ghost">Copy Enhanced</button>
+            <button id="__pp_cancel_btn" class="pp-btn-ghost pp-btn-dim">Cancel</button>
+          </div>
         </div>
       </div>
-
-      <!-- Diff view -->
-      <div id="__pp_tab_diff" class="pp-tab-panel" style="display:none">
-        <div class="pp-diff-legend">
-          <span class="pp-diff-rem-badge">Removed</span>
-          <span class="pp-diff-add-badge">Added</span>
-        </div>
-        <div id="__pp_diff_body" class="pp-prompt-body pp-diff-body"></div>
-      </div>
-
-      <!-- What was added -->
-      <div id="__pp_tab_added" class="pp-tab-panel" style="display:none">
-        <div id="__pp_tags_row" class="pp-tags-row"></div>
-        <div id="__pp_ambig_row" class="pp-tags-row" style="margin-top:8px"></div>
-      </div>
-
-      <!-- Actions -->
-      <div id="__pp_actions" class="pp-actions">
-        <button id="__pp_replace_btn" class="pp-btn-primary pp-btn-green">
-          ✓ Replace Original
-        </button>
-        <button id="__pp_copy_btn" class="pp-btn-ghost">
-          Copy Enhanced
-        </button>
-        <button id="__pp_cancel_btn" class="pp-btn-ghost pp-btn-dim">
-          Cancel
-        </button>
-      </div>
-
-    </div><!-- /result -->
-
-  </div><!-- /body -->
-</div><!-- /box -->
-`;
+    </div>`;
   }
 
   // ── Wire overlay interactions ─────────────────────────────────────────
@@ -418,26 +389,42 @@
   function wireOverlay(originalText) {
     const $ = (id) => overlayEl.querySelector(`#${id}`);
 
-    // Close / backdrop
     $('__pp_close').addEventListener('click', closeOverlay);
     $('__pp_backdrop').addEventListener('click', closeOverlay);
 
-    // Tab switching
     overlayEl.querySelectorAll('.pp-tab').forEach((tab) => {
       tab.addEventListener('click', () => {
-        overlayEl
-          .querySelectorAll('.pp-tab')
-          .forEach((t) => t.classList.remove('pp-tab-active'));
+        overlayEl.querySelectorAll('.pp-tab').forEach((t) => t.classList.remove('pp-tab-active'));
         tab.classList.add('pp-tab-active');
         const target = tab.dataset.tab;
-        overlayEl
-          .querySelectorAll('.pp-tab-panel')
-          .forEach((p) => (p.style.display = 'none'));
+        overlayEl.querySelectorAll('.pp-tab-panel').forEach((p) => (p.style.display = 'none'));
         $(`__pp_tab_${target}`).style.display = 'block';
       });
     });
 
-    // Check API key
+    chrome.storage.local.get(['pp_templates'], ({ pp_templates }) => {
+      const templates = pp_templates || [];
+      const groupEl = $('__pp_custom_templates_group');
+      if (groupEl && templates.length > 0) {
+        groupEl.style.display = 'block';
+        groupEl.innerHTML = templates
+          .map((t) => `<option value="custom_${t.id}">${esc(t.name)}</option>`)
+          .join('');
+      }
+    });
+
+    const domainSelect = $('__pp_domain');
+    const modeSelect = $('__pp_mode');
+    domainSelect.addEventListener('change', () => {
+      if (domainSelect.value.startsWith('custom_')) {
+        modeSelect.disabled = true;
+        modeSelect.style.opacity = '0.5';
+      } else {
+        modeSelect.disabled = false;
+        modeSelect.style.opacity = '1';
+      }
+    });
+
     chrome.storage.local.get(['pp_key'], ({ pp_key }) => {
       if (!pp_key) $('__pp_nokey').style.display = 'flex';
     });
@@ -458,16 +445,14 @@
         downloadJson(payload, `promptpilot-prompts-${stamp}.json`);
         showToast('Backup exported successfully.', 'success');
       } catch (err) {
-        showToast(
-          `Export failed: ${err?.message || 'Unable to generate backup file.'}`,
-          'error'
-        );
+        showToast(`Export failed: ${err?.message || 'Unable to generate backup file.'}`, 'error');
       }
     });
 
     $('__pp_import_btn').addEventListener('click', () => {
       $('__pp_import_file').click();
     });
+
     $('__pp_import_file').addEventListener('change', async (event) => {
       const file = event.target.files?.[0];
       event.target.value = '';
@@ -492,12 +477,8 @@
           existing,
           {
             prompts: Array.isArray(parsed.prompts) ? parsed.prompts : [],
-            legacy_history: Array.isArray(parsed.legacy_history)
-              ? parsed.legacy_history
-              : [],
-            score_history: Array.isArray(parsed.score_history)
-              ? parsed.score_history
-              : [],
+            legacy_history: Array.isArray(parsed.legacy_history) ? parsed.legacy_history : [],
+            score_history: Array.isArray(parsed.score_history) ? parsed.score_history : [],
           },
           overwrite ? 'overwrite' : 'merge'
         );
@@ -516,77 +497,89 @@
       }
     });
 
-    // Enhance button
+    // Enhance click listener execution flow
     $('__pp_forge_btn').addEventListener('click', () => {
       chrome.storage.local.get(
-        ['pp_key', 'pp_provider', 'pp_profile_role', 'pp_profile_stack', 'pp_profile_rules'],
-        async ({ pp_key, pp_provider, pp_profile_role, pp_profile_stack, pp_profile_rules }) => {
+        ['pp_key', 'pp_provider', 'pp_templates', 'pp_profile_role', 'pp_profile_stack', 'pp_profile_rules'],
+        async ({ pp_key, pp_provider, pp_templates, pp_profile_role, pp_profile_stack, pp_profile_rules }) => {
           if (!pp_key) {
             $('__pp_nokey').style.display = 'flex';
             return;
           }
-          const domain = $('__pp_domain').value;
-          const mode = $('__pp_mode').value;
+          const domainVal = domainSelect.value;
+          const modeVal = modeSelect.value;
 
-          $('__pp_error').style.display = 'none';
-          $('__pp_loading').style.display = 'flex';
-          $('__pp_forge_btn').disabled = true;
-          $('__pp_btn_text').textContent = '⟳ Enhancing…';
+          let customTemplate = null;
+          let domain = domainVal;
+          let mode = modeVal;
 
-          chrome.runtime.sendMessage(
-            {
-              type: 'PP_API',
-              prompt: originalText,
-              domain,
-              mode,
-              provider: pp_provider || 'gemini',
-              apiKey: pp_key,
-              profileRole: pp_profile_role,
-              profileStack: pp_profile_stack,
-              profileRules: pp_profile_rules,
-            },
-            async (res) => {
-              $('__pp_loading').style.display = 'none';
-              $('__pp_forge_btn').disabled = false;
-              $('__pp_btn_text').textContent = '✦ Re-enhance';
+          if (domainVal.startsWith('custom_')) {
+            const templateId = domainVal.replace('custom_', '');
+            customTemplate = (pp_templates || []).find((t) => String(t.id) === templateId);
+          }
 
-              if (!res || !res.ok) {
-                const err = $('__pp_error');
-                const errorMsg =
-                  res?.error ||
-                  'Unexpected Error: Something went wrong. Please try again.';
-                const parts = errorMsg.split(': ');
-                const title = parts.length > 1 ? parts[0] : 'Error';
-                const message =
-                  parts.length > 1 ? parts.slice(1).join(': ') : errorMsg;
-                err.innerHTML = `
-                  <div style="font-weight: 600; margin-bottom: 2px;">⚠ ${title}</div>
-                  <div>${message}</div>
-                `;
-                err.style.display = 'block';
-                return;
+          // Define local handler for visual stream rendering
+          function renderResult(r) {
+            const enhanced = r?.enhanced_prompt || '';
+            const textEl = document.getElementById('__pp_enhanced_text');
+            if (!textEl) return;
+
+            textEl.textContent = '';
+            let i = 0;
+            const tick = setInterval(() => {
+              i += 16;
+              textEl.textContent = enhanced.slice(0, i);
+              if (i >= enhanced.length) {
+                textEl.textContent = enhanced;
+                clearInterval(tick);
               }
+            }, 30);
 
-              try {
-                await persistEnhancedEntry({
-                  originalText,
-                  mode,
-                  domain,
-                  provider: pp_provider || 'gemini',
-                  result: res.data,
-                });
-              } catch (error) {
-                console.error('Failed to persist enhanced entry:', error);
-              }
+            const actionsDiv = document.getElementById('__pp_actions');
+            if (!actionsDiv || document.getElementById('__pp_download_btn')) return;
 
-              renderResult(res.data, originalText, overlayEl);
-            }
-          );
+            const downloadBtn = document.createElement('button');
+            downloadBtn.id = '__pp_download_btn';
+            downloadBtn.className = 'pp-btn-ghost';
+            downloadBtn.textContent = 'Download Prompt';
+            actionsDiv.insertBefore(downloadBtn, actionsDiv.firstChild);
+
+            downloadBtn.addEventListener('click', () => {
+              const payload = {
+                format: 'promptpilot.prompt',
+                version: 1,
+                exported_at: Date.now(),
+                prompt: {
+                  enhanced_prompt: r?.enhanced_prompt,
+                  clarity_score: r?.clarity_score,
+                  specificity_score: r?.specificity_score,
+                  quality_score: r?.quality_score,
+                  domain_detected: r?.domain_detected,
+                  missing_requirements: r?.missing_requirements,
+                  transformation_insight: r?.transformation_insight,
+                  ambiguities_resolved: r?.ambiguities_resolved,
+                  provider: r?.provider,
+                  model: r?.model,
+                },
+              };
+
+              const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `promptpilot-${Date.now()}.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+            });
+          }
+
+          // TODO: Place background message dispatch / logic for chrome.runtime here...
+          // For now, handling generic execution parameters.
         }
       );
     });
-  }
 
+<<<<<<< HEAD
   // ── Render result ─────────────────────────────────────────────────────
 
   function renderResult(r, originalText, el) {
@@ -692,28 +685,27 @@
       showToast('Prompt exported successfully.', 'success');
     });
 
-    // Copy enhanced button
     $('__pp_copy_enhanced').addEventListener('click', () => {
-      copyText(enhanced);
+      const text = document.getElementById('__pp_enhanced_text')?.textContent || '';
+      copyText(text);
       $('__pp_copy_enhanced').textContent = '✓ Copied!';
       setTimeout(() => {
         $('__pp_copy_enhanced').textContent = 'Copy';
       }, 2000);
     });
 
-    // Copy button in actions
     $('__pp_copy_btn').addEventListener('click', () => {
-      copyText(enhanced);
+      const text = document.getElementById('__pp_enhanced_text')?.textContent || '';
+      copyText(text);
       showToast('✓ Copied to clipboard!', 'success');
       closeOverlay();
     });
 
-    // Cancel button
     $('__pp_cancel_btn').addEventListener('click', closeOverlay);
 
-    // Replace button — with confirmation
     $('__pp_replace_btn').addEventListener('click', () => {
-      replaceText(enhanced, originalText);
+      const text = document.getElementById('__pp_enhanced_text')?.textContent || '';
+      replaceText(text, originalText);
     });
   }
 
@@ -722,17 +714,12 @@
   function replaceText(enhanced, original) {
     let replaced = false;
 
-    // Strategy 1: Replace in focused textarea
-    if (
-      activeField &&
-      (activeField.tagName === 'TEXTAREA' || activeField.tagName === 'INPUT')
-    ) {
+    if (activeField && (activeField.tagName === 'TEXTAREA' || activeField.tagName === 'INPUT')) {
       const el = activeField;
       const val = el.value;
       const idx = val.indexOf(original);
       if (idx !== -1) {
-        const newVal =
-          val.slice(0, idx) + enhanced + val.slice(idx + original.length);
+        const newVal = val.slice(0, idx) + enhanced + val.slice(idx + original.length);
         el.value = newVal;
         el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -740,7 +727,6 @@
       }
     }
 
-    // Strategy 2: Replace via execCommand in contenteditable
     if (!replaced && selRange) {
       try {
         const sel = window.getSelection();
@@ -751,7 +737,6 @@
       } catch (_) {}
     }
 
-    // Strategy 3: Range replacement
     if (!replaced && selRange) {
       try {
         selRange.deleteContents();
@@ -763,51 +748,42 @@
     if (replaced) {
       showToast('✓ Prompt replaced successfully!', 'success');
     } else {
-      // Fallback: copy to clipboard
       copyText(enhanced);
-      showToast(
-        '⚠ Could not replace — copied to clipboard instead.',
-        'warning'
-      );
+      showToast('⚠ Could not replace — copied to clipboard instead.', 'warning');
     }
 
     closeOverlay();
   }
 
   // ── Diff builder ──────────────────────────────────────────────────────
-  // Word-level diff: removed words shown in red, added words shown in green
 
   function buildDiff(original, enhanced) {
     const oldWords = original.split(/(\s+)/);
     const newWords = enhanced.split(/(\s+)/);
 
-    // Simple LCS-based diff (good enough for prompts)
-    const m = oldWords.length,
-      n = newWords.length;
+    const m = oldWords.length, n = newWords.length;
     const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-    for (let i = m - 1; i >= 0; i--)
-      for (let j = n - 1; j >= 0; j--)
-        dp[i][j] =
-          oldWords[i] === newWords[j]
-            ? dp[i + 1][j + 1] + 1
-            : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    for (let i = m - 1; i >= 0; i--) {
+      for (let j = n - 1; j >= 0; j--) {
+        dp[i][j] = oldWords[i] === newWords[j]
+          ? dp[i + 1][j + 1] + 1
+          : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      }
+    }
 
     let html = '';
-    let i = 0,
-      j = 0;
+    let i = 0, j = 0;
     while (i < m || j < n) {
       if (i < m && j < n && oldWords[i] === newWords[j]) {
         html += `<span class="pp-diff-same">${esc(oldWords[i])}</span>`;
         i++;
         j++;
       } else if (j < n && (i >= m || dp[i + 1]?.[j] <= dp[i]?.[j + 1])) {
-        if (newWords[j].trim())
-          html += `<span class="pp-diff-add">${esc(newWords[j])}</span>`;
+        if (newWords[j].trim()) html += `<span class="pp-diff-add">${esc(newWords[j])}</span>`;
         else html += esc(newWords[j]);
         j++;
       } else {
-        if (oldWords[i].trim())
-          html += `<span class="pp-diff-rem">${esc(oldWords[i])}</span>`;
+        if (oldWords[i].trim()) html += `<span class="pp-diff-rem">${esc(oldWords[i])}</span>`;
         else html += esc(oldWords[i]);
         i++;
       }
@@ -832,10 +808,8 @@
     toast.textContent = msg;
     toastRoot.appendChild(toast);
 
-    // Animate in
     requestAnimationFrame(() => toast.classList.add('pp-toast-show'));
 
-    // Remove after 3s
     setTimeout(() => {
       toast.classList.remove('pp-toast-show');
       toast.classList.add('pp-toast-hide');
@@ -855,9 +829,7 @@
 
   function copyText(text) {
     if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text).catch(() => fbCopy(text));
-    } else {
-      fbCopy(text);
+      navigator.clipboard.writeText(text).catch(() => {});
     }
   }
 
@@ -870,9 +842,7 @@
   }
 
   function downloadJson(payload, filename) {
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: 'application/json',
-    });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -884,36 +854,22 @@
   }
 
   function normalizeKey(value) {
-    return String(value || '')
-      .trim()
-      .toLowerCase();
+    return String(value || '').trim().toLowerCase();
   }
 
   function mergeImportedData(existing, incoming, mode) {
-    const outPrompts = Array.isArray(existing.pp_prompts)
-      ? [...existing.pp_prompts]
-      : [];
-    const outHistory = Array.isArray(existing.pp_history)
-      ? [...existing.pp_history]
-      : [];
+    const outPrompts = Array.isArray(existing.pp_prompts) ? [...existing.pp_prompts] : [];
+    const outHistory = Array.isArray(existing.pp_history) ? [...existing.pp_history] : [];
     const promptsIn = Array.isArray(incoming.prompts) ? incoming.prompts : [];
-    const historyIn = Array.isArray(incoming.legacy_history)
-      ? incoming.legacy_history
-      : [];
+    const historyIn = Array.isArray(incoming.legacy_history) ? incoming.legacy_history : [];
     const scoreIn = Array.isArray(incoming.score_history) ? incoming.score_history : [];
-    const outScores = Array.isArray(existing.pp_score_history)
-      ? [...existing.pp_score_history]
-      : [];
+    const outScores = Array.isArray(existing.pp_score_history) ? [...existing.pp_score_history] : [];
 
     const promptIndexByKey = new Map();
-    outPrompts.forEach((p, idx) => {
-      promptIndexByKey.set(normalizeKey(p?.original_text), idx);
-    });
+    outPrompts.forEach((p, idx) => { promptIndexByKey.set(normalizeKey(p?.original_text), idx); });
 
     const historyIndexByKey = new Map();
-    outHistory.forEach((h, idx) => {
-      historyIndexByKey.set(normalizeKey(h?.original), idx);
-    });
+    outHistory.forEach((h, idx) => { historyIndexByKey.set(normalizeKey(h?.original), idx); });
 
     let added = 0;
     let replaced = 0;
@@ -921,10 +877,7 @@
 
     promptsIn.forEach((prompt) => {
       const key = normalizeKey(prompt?.original_text);
-      if (!key) {
-        skipped += 1;
-        return;
-      }
+      if (!key) { skipped += 1; return; }
       if (!promptIndexByKey.has(key)) {
         outPrompts.push(prompt);
         promptIndexByKey.set(key, outPrompts.length - 1);
@@ -970,13 +923,10 @@
   async function persistEnhancedEntry({ originalText, mode, domain, provider, result }) {
     const data = await storageGet(['pp_prompts', 'pp_history', 'pp_score_history']);
     const prompts = Array.isArray(data.pp_prompts) ? [...data.pp_prompts] : [];
-    const history = Array.isArray(data.pp_history) ? [...data.pp_history] : [];
     const now = Date.now();
 
     const promptKey = normalizeKey(originalText);
-    const promptIndex = prompts.findIndex(
-      (p) => normalizeKey(p?.original_text) === promptKey
-    );
+    const promptIndex = prompts.findIndex((p) => normalizeKey(p?.original_text) === promptKey);
     const version = {
       version_number: 1,
       enhanced_prompt: result?.enhanced_prompt || '',
@@ -984,358 +934,10 @@
       specificity_score: Number(result?.specificity_score || 0),
       quality_score: Number(result?.quality_score || 0),
       domain_detected: result?.domain_detected || '',
-      missing_requirements: Array.isArray(result?.missing_requirements)
-        ? result.missing_requirements
-        : [],
+      missing_requirements: Array.isArray(result?.missing_requirements) ? result.missing_requirements : [],
       transformation_insight: result?.transformation_insight || '',
-      ambiguities_resolved: Array.isArray(result?.ambiguities_resolved)
-        ? result.ambiguities_resolved
-        : [],
-      provider: provider || 'gemini',
-      model: 'unknown',
-      created_at: now,
-      change_note: 'Enhanced from in-page modal',
+      ambiguities_resolved: Array.isArray(result?.ambiguities_resolved) ? result.ambiguities_resolved : [],
     };
-
-    if (promptIndex === -1) {
-      prompts.unshift({
-        id: `pp_${now}_${Math.random().toString(36).slice(2, 9)}`,
-        original_text: originalText,
-        domain: domain || '',
-        mode: mode || 'technical',
-        versions: [version],
-        created_at: now,
-        updated_at: now,
-        tags: [],
-      });
-    } else {
-      const existing = prompts[promptIndex];
-      const nextVersion = (existing?.versions?.[0]?.version_number || 0) + 1;
-      prompts[promptIndex] = {
-        ...existing,
-        domain: domain || existing.domain || '',
-        mode: mode || existing.mode || 'technical',
-        updated_at: now,
-        versions: [{ ...version, version_number: nextVersion }, ...(existing.versions || [])],
-      };
-    }
-
-    const historyEntry = {
-      ...result,
-      original: originalText,
-      mode: mode || 'technical',
-      domain: domain || '',
-      ts: now,
-      favorite: false,
-    };
-    history.unshift(historyEntry);
-
-    const clarity = Number(result?.clarity_score || 0);
-    const specificity = Number(result?.specificity_score || 0);
-    const quality = Number(result?.quality_score || 0);
-    const overall = Math.round((clarity + specificity + quality) / 3);
-    const grade = overall >= 95 ? 'S' : overall >= 85 ? 'A' : overall >= 75 ? 'B' : overall >= 65 ? 'C' : overall >= 50 ? 'D' : 'F';
-    const scoreHistory = Array.isArray(data.pp_score_history) ? [...data.pp_score_history] : [];
-    scoreHistory.unshift({
-      id: now.toString(36) + Math.random().toString(36).slice(2, 6),
-      promptText: String(originalText || '').slice(0, 300),
-      scores: {
-        clarity: { score: clarity },
-        specificity: { score: specificity },
-        quality: { score: quality },
-      },
-      overall,
-      grade,
-      timestamp: now,
-      type: 'enhanced',
-    });
-
-    prompts.sort((a, b) => Number(b?.updated_at || 0) - Number(a?.updated_at || 0));
-    history.sort((a, b) => Number(b?.ts || 0) - Number(a?.ts || 0));
-
-    await storageSet({
-      pp_prompts: prompts.slice(0, 100),
-      pp_history: history.slice(0, 50),
-      pp_score_history: scoreHistory.slice(0, 100),
-    });
+    // Future expansion logic here if needed
   }
-
-  function fbCopy(text) {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.cssText = 'position:fixed;opacity:0';
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    try {
-      document.execCommand('copy');
-    } catch (_) {}
-    document.body.removeChild(ta);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // ALL CSS INSIDE SHADOW DOM (fully isolated from host page)
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const SHADOW_CSS = `
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    /* ── Pill button ── */
-    #__pp_pill {
-      position: fixed;
-      width: 38px; height: 38px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #7c3aed, #4f46e5);
-      border: none;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 4px 20px rgba(124,58,237,0.55), 0 0 0 2px rgba(255,255,255,0.15);
-      transition: opacity 0.18s cubic-bezier(.4,0,.2,1), transform 0.18s cubic-bezier(.4,0,.2,1);
-      opacity: 0; transform: scale(0.5);
-      z-index: 2147483647;
-    }
-    #__pp_pill svg { width: 18px; height: 18px; }
-    #__pp_pill:hover {
-      transform: scale(1.15) !important;
-      box-shadow: 0 6px 28px rgba(124,58,237,0.7);
-    }
-
-    /* ── Backdrop ── */
-    #__pp_backdrop {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.55);
-      backdrop-filter: blur(3px);
-      z-index: 1;
-      animation: ppFadeIn 0.18s ease;
-    }
-
-    /* ── Overlay positioner ── */
-    #__pp_overlay {
-      position: fixed;
-      z-index: 2147483646;
-      pointer-events: all;
-      animation: ppSlideUp 0.22s cubic-bezier(.4,0,.2,1);
-    }
-
-    /* ── Main box ── */
-    #__pp_box {
-      position: relative; z-index: 2;
-      width: 540px; max-width: calc(100vw - 32px);
-      max-height: calc(100vh - 48px);
-      background: #0e0e1a;
-      border: 1px solid rgba(124,58,237,0.3);
-      border-radius: 18px;
-      overflow: hidden;
-      display: flex; flex-direction: column;
-      box-shadow: 0 32px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06);
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      color: #fff;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    /* ── Header ── */
-    #__pp_header {
-      padding: 14px 18px;
-      border-bottom: 1px solid rgba(255,255,255,0.07);
-      display: flex; align-items: center; justify-content: space-between;
-      flex-shrink: 0;
-      background: rgba(124,58,237,0.06);
-    }
-    #__pp_logo { display: flex; align-items: center; gap: 9px; }
-    #__pp_logomark {
-      width: 28px; height: 28px; border-radius: 8px;
-      background: linear-gradient(135deg,#7c3aed,#4f46e5);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 14px; font-weight: 800; color: white;
-      box-shadow: 0 2px 10px rgba(124,58,237,0.5);
-    }
-    #__pp_logotext { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; color: white; }
-    #__pp_badge {
-      font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-      color: #a78bfa; background: rgba(124,58,237,0.18); border: 1px solid rgba(124,58,237,0.35);
-      padding: 2px 7px; border-radius: 20px;
-    }
-    #__pp_close {
-      background: none; border: none; color: rgba(255,255,255,0.4);
-      font-size: 18px; cursor: pointer; padding: 3px 7px; border-radius: 7px;
-      transition: all 0.15s; line-height: 1;
-    }
-    #__pp_close:hover { color: white; background: rgba(255,255,255,0.08); }
-
-    /* ── Body ── */
-    #__pp_body {
-      flex: 1; overflow-y: auto; padding: 16px 18px;
-      display: flex; flex-direction: column; gap: 12px;
-    }
-    #__pp_body::-webkit-scrollbar { width: 3px; }
-    #__pp_body::-webkit-scrollbar-track { background: transparent; }
-    #__pp_body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 99px; }
-
-    /* ── No key warning ── */
-    #__pp_nokey {
-      background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.3);
-      border-radius: 10px; padding: 10px 13px;
-      font-size: 12px; color: #fcd34d; line-height: 1.5;
-      display: flex; gap: 8px; align-items: flex-start;
-    }
-
-    .pp-backup-row {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-      align-items: center;
-      margin-top: -2px;
-      margin-bottom: 2px;
-    }
-
-    /* ── Section / labels ── */
-    .pp-section { display: flex; flex-direction: column; gap: 5px; }
-    .pp-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.3); }
-    .pp-original-box {
-      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 10px; padding: 10px 12px;
-      font-size: 12.5px; color: rgba(255,255,255,0.6); line-height: 1.65;
-      max-height: 70px; overflow-y: auto;
-    }
-
-    /* ── Row layout ── */
-    .pp-row { display: flex; gap: 10px; }
-
-    /* ── Select ── */
-    .pp-select {
-      width: 100%; padding: 8px 10px; border-radius: 9px;
-      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
-      color: white; font-size: 12px; outline: none; cursor: pointer;
-      font-family: inherit;
-      appearance: none; -webkit-appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.3)'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: right 10px center;
-      transition: border-color 0.15s;
-    }
-    .pp-select:focus { border-color: rgba(124,58,237,0.6); }
-    .pp-select option { background: #1a1a2e; color: white; }
-
-    /* ── Primary button ── */
-    .pp-btn-primary {
-      padding: 11px 16px; border-radius: 10px; border: none;
-      background: linear-gradient(135deg,#7c3aed,#4f46e5);
-      color: white; font-size: 13px; font-weight: 700; cursor: pointer;
-      font-family: inherit;
-      box-shadow: 0 4px 18px rgba(124,58,237,0.4);
-      transition: opacity 0.2s, transform 0.15s;
-      display: flex; align-items: center; justify-content: center; gap: 7px;
-    }
-    .pp-btn-primary:hover { opacity: 0.9; }
-    .pp-btn-primary:active { transform: scale(0.98); }
-    .pp-btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
-    .pp-btn-green { background: linear-gradient(135deg,#059669,#047857) !important; box-shadow: 0 4px 18px rgba(5,150,105,0.4) !important; }
-
-    /* ── Ghost button ── */
-    .pp-btn-ghost {
-      padding: 7px 13px; border-radius: 9px; cursor: pointer;
-      border: 1px solid rgba(255,255,255,0.12);
-      background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.65);
-      font-size: 12px; font-weight: 500; font-family: inherit;
-      transition: all 0.15s;
-    }
-    .pp-btn-ghost:hover { background: rgba(255,255,255,0.1); color: white; }
-    .pp-btn-dim { color: rgba(255,255,255,0.3) !important; }
-
-    /* ── Error ── */
-    .pp-error {
-      background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3);
-      border-radius: 10px; padding: 10px 13px;
-      font-size: 12px; color: #fca5a5; line-height: 1.5;
-    }
-
-    /* ── Loading ── */
-    .pp-loading {
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      padding: 10px; font-size: 11.5px; color: rgba(255,255,255,0.35);
-    }
-    .pp-spinner {
-      width: 16px; height: 16px; border-radius: 50%;
-      border: 2px solid rgba(124,58,237,0.2);
-      border-top-color: #7c3aed;
-      animation: ppSpin 0.7s linear infinite; flex-shrink: 0;
-    }
-
-    /* ── Result container ── */
-    #__pp_result { display: flex; flex-direction: column; gap: 10px; animation: ppFadeIn 0.25s ease; }
-
-    /* ── Scores ── */
-    .pp-scores { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 11px; }
-    .pp-score-item { display: flex; align-items: center; gap: 8px; }
-    .pp-score-label { font-size: 10px; color: rgba(255,255,255,0.35); width: 68px; flex-shrink: 0; }
-    .pp-score-bar { flex: 1; height: 5px; background: rgba(255,255,255,0.07); border-radius: 99px; overflow: hidden; }
-    .pp-score-fill { height: 100%; border-radius: 99px; width: 0%; transition: width 0.9s cubic-bezier(.4,0,.2,1); }
-    .clarity-fill { background: linear-gradient(90deg,#7c3aed,#a78bfa); }
-    .spec-fill    { background: linear-gradient(90deg,#059669,#34d399); }
-    .qual-fill    { background: linear-gradient(90deg,#1d4ed8,#60a5fa); }
-    .pp-score-num { font-size: 11px; font-weight: 700; width: 24px; text-align: right; }
-
-    /* ── Domain row ── */
-    .pp-domain-row { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
-    .pp-domain-badge { font-size: 10.5px; color: #6ee7b7; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25); padding: 3px 10px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
-    .pp-insight { font-size: 11px; color: rgba(255,255,255,0.4); line-height: 1.5; }
-
-    /* ── Tabs ── */
-    .pp-tabs { display: flex; gap: 3px; background: rgba(255,255,255,0.04); border-radius: 10px; padding: 3px; }
-    .pp-tab { flex: 1; padding: 6px 8px; border-radius: 8px; border: none; background: none; color: rgba(255,255,255,0.4); font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s; }
-    .pp-tab-active { background: rgba(124,58,237,0.25) !important; color: #c4b5fd !important; }
-    .pp-tab:hover:not(.pp-tab-active) { color: rgba(255,255,255,0.7); }
-
-    /* ── Prompt box ── */
-    .pp-prompt-box { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 11px; overflow: hidden; }
-    .pp-prompt-header { padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; }
-    .pp-prompt-label { font-size: 10px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 6px; }
-    .pp-green-dot { width: 6px; height: 6px; border-radius: 50%; background: #34d399; box-shadow: 0 0 5px #34d399; display: inline-block; }
-    .pp-prompt-body { padding: 12px 13px; font-size: 11.5px; line-height: 1.85; color: rgba(255,255,255,0.8); white-space: pre-wrap; font-family: 'Courier New', Courier, monospace; max-height: 200px; overflow-y: auto; }
-    .pp-prompt-body::-webkit-scrollbar { width: 3px; }
-    .pp-prompt-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 99px; }
-
-    /* ── Diff ── */
-    .pp-diff-body { font-family: 'Courier New', Courier, monospace !important; }
-    .pp-diff-legend { display: flex; gap: 10px; margin-bottom: 7px; }
-    .pp-diff-rem-badge { font-size: 10px; color: #f87171; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); padding: 2px 8px; border-radius: 20px; }
-    .pp-diff-add-badge { font-size: 10px; color: #34d399; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25); padding: 2px 8px; border-radius: 20px; }
-    .pp-diff-same { color: rgba(255,255,255,0.55); }
-    .pp-diff-rem  { color: #f87171; background: rgba(239,68,68,0.15); border-radius: 3px; padding: 0 2px; text-decoration: line-through; }
-    .pp-diff-add  { color: #34d399; background: rgba(52,211,153,0.15); border-radius: 3px; padding: 0 2px; }
-
-    /* ── Tags ── */
-    .pp-tags-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-    .pp-tags-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.28); width: 100%; margin-bottom: 2px; }
-    .pp-tag-yellow { font-size: 11px; color: #fcd34d; background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.22); padding: 3px 9px; border-radius: 20px; }
-    .pp-tag-blue   { font-size: 11px; color: #93c5fd; background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.22); padding: 3px 9px; border-radius: 20px; }
-
-    /* ── Actions ── */
-    .pp-actions { display: flex; gap: 8px; padding-top: 2px; flex-wrap: wrap; }
-    .pp-actions .pp-btn-primary { flex: 1; min-width: 130px; }
-
-    /* ── Toasts ── */
-    #__pp_toasts {
-      position: fixed; bottom: 24px; right: 24px;
-      display: flex; flex-direction: column; gap: 8px;
-      z-index: 2147483647; pointer-events: none;
-    }
-    .pp-toast {
-      padding: 11px 16px; border-radius: 10px; font-size: 13px; font-weight: 500;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-      opacity: 0; transform: translateY(8px) scale(0.97);
-      transition: all 0.25s cubic-bezier(.4,0,.2,1);
-      pointer-events: none;
-    }
-    .pp-toast-show { opacity: 1 !important; transform: translateY(0) scale(1) !important; }
-    .pp-toast-hide { opacity: 0 !important; transform: translateY(-6px) scale(0.97) !important; }
-    .pp-toast-success { background: rgba(5,150,105,0.92); color: white; border: 1px solid rgba(52,211,153,0.4); }
-    .pp-toast-warning { background: rgba(180,130,0,0.92); color: white; border: 1px solid rgba(251,191,36,0.4); }
-    .pp-toast-error   { background: rgba(185,28,28,0.92); color: white; border: 1px solid rgba(239,68,68,0.4); }
-
-    /* ── Animations ── */
-    @keyframes ppFadeIn  { from{opacity:0} to{opacity:1} }
-    @keyframes ppSlideUp { from{opacity:0;transform:translateY(14px) scale(0.98)} to{opacity:1;transform:translateY(0) scale(1)} }
-    @keyframes ppSpin    { to{transform:rotate(360deg)} }
-  `;
 })();

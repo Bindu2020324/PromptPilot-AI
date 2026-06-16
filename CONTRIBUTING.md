@@ -23,6 +23,13 @@ Thank you for your interest in contributing! This document explains how to set u
    - Click **Load unpacked**
    - Select the generated `dist/` folder
 
+## Coding & Styling Conventions
+
+- **Linting**: Ensure all code passes ESLint rules. Run `npm run lint`.
+- **Formatting**: Format your code using Prettier before committing: `npm run format`.
+- **Testing**: Run unit tests to verify the code behaves as expected: `npm run test`.
+- **Coverage**: Maintain test coverage for new business logic.
+
 ## Development Workflow
 
 ### Run in watch mode
@@ -57,6 +64,7 @@ Before submitting a PR, make sure to:
 - [ ] Verify the extension loads in the browser from `dist/`
 - [ ] Confirm the change works and does not break existing behavior
 - [ ] Add or update documentation if needed
+- [ ] Run linter and formatter validation locally
 - [ ] Provide a clear PR description and link any related issue
 - [ ] Keep changes focused to a single task when possible
 
