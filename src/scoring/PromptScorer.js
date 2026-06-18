@@ -142,14 +142,10 @@ function calculateClarityScore(text) {
   });
   
   const ambiguousPronouns = ['it', 'they', 'them', 'this', 'that'];
-  ambigPronouns(text, pronoun => {
+  ambiguousPronouns.forEach(pronoun => {
     const matches = (text.match(new RegExp(`\\b${pronoun}\\b`, 'gi')) || []).length;
     if (matches > 3) score -= 3;
   });
-  
-  function ambigPronouns(text, cb) {
-    ['it', 'they', 'them', 'this', 'that'].forEach(cb);
-  }
   
   const clearVerbs = ['implement', 'create', 'build', 'design', 'write', 'generate', 'explain'];
   clearVerbs.forEach(verb => {
