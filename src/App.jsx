@@ -700,6 +700,7 @@ function HistoryScreen({
   showFavoritesOnly,
   setShowFavoritesOnly,
   toggleFavorite,
+  onSaveSearch,
   onExportJSON,
   onExportMD,
 }) {
@@ -823,6 +824,8 @@ function HistoryScreen({
           placeholder="Search prompts..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && onSaveSearch(searchQuery)}
+            onBlur={() => onSaveSearch(searchQuery)}
           style={{
             flex: 1,
             padding: '8px 10px',
@@ -999,7 +1002,7 @@ function HistoryScreen({
                   >
                     {latestVersion.domain_detected || prompt.domain || '—'} ·{' '}
                     {prompt.mode} ·{' '}
-                    {new Date(prompt.updated_at).toLocaleDateString()}
+                    {new Date(prompt.updated_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                   </div>
                   <div
                     style={{
@@ -1063,6 +1066,7 @@ export default function App() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [prompts, setPrompts] = useState([]);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
+  const [recentSearches, setRecentSearches] = useState([]);
   const [compareVersion, setCompareVersion] = useState(null);
   const [input, setInput] = useState('');
   const [domain, setDomain] = useState('');
@@ -1192,6 +1196,10 @@ export default function App() {
           setHistory(pp_history || []);
         });
       }
+
+      // Load recent searches
+      const searches = await versioningService.getRecentSearches();
+      setRecentSearches(searches);
     })();
   }, []);
 
@@ -1373,9 +1381,14 @@ export default function App() {
     await storage.set({ pp_prompts: updated });
   }
 
-  function handleHistorySelect(prompt) {
+  async function handleHistorySelect(prompt) {
     const latestVersion = prompt.versions?.[0];
     if (!latestVersion) return;
+
+    // Move selected prompt to top of recent list
+    const updated = await versioningService.touchPrompt(prompt.id);
+    setPrompts(updated);
+
     setInput(prompt.original_text);
     setResult(latestVersion);
     setMode(prompt.mode || 'technical');
@@ -1389,9 +1402,18 @@ export default function App() {
       await versioningService.clearAll();
       setPrompts([]);
       setHistory([]);
+      setRecentSearches([]);
       storage.set({ pp_history: [] });
     })();
   }
+
+  const handleSaveSearch = async (query) => {
+    const trimmed = query?.trim();
+    // Only save searches that are at least 3 characters long
+    if (!trimmed || trimmed.length < 3) return;
+    const updated = await versioningService.saveSearch(trimmed);
+    if (updated) setRecentSearches(updated);
+  };
 
   const handleExportJSON = () => {
     try {
@@ -1579,6 +1601,7 @@ export default function App() {
         showFavoritesOnly={showFavoritesOnly}
         setShowFavoritesOnly={setShowFavoritesOnly}
         toggleFavorite={toggleFavorite}
+        onSaveSearch={handleSaveSearch}
         onExportJSON={handleExportJSON}
         onExportMD={handleExportMarkdown}
       />
@@ -2017,6 +2040,107 @@ export default function App() {
             ))}
           </div>
         </div>
+
+        {/* Recent Searches Quick Access */}
+        {!loading && !result && recentSearches.length > 0 && (
+          <div style={{ animation: 'fadeUp 0.3s ease', marginBottom: 14 }}>
+            <Label>Recent Searches</Label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+              {recentSearches.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setSearchQuery(s);
+                    setScreen('history');
+                  }}
+                  style={{
+                    padding: '3px 10px',
+                    borderRadius: 12,
+                    fontSize: 10,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-faint)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-light)'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                >
+                  🔍 {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recent Prompts Panel */}
+        {!loading && !result && prompts.length > 0 && (
+          <div style={{ animation: 'fadeUp 0.3s ease', marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Label>Recent Prompts</Label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button 
+                  onClick={() => setScreen('history')}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent-light)', fontSize: 10, cursor: 'pointer', padding: 0 }}
+                >
+                  View All →
+                </button>
+                <button 
+                  onClick={handleClearHistory}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent-red)', fontSize: 10, cursor: 'pointer', padding: 0, opacity: 0.7 }}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {prompts.slice(0, 5).map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => handleHistorySelect(p)}
+                  title="Click to reload this prompt"
+                  style={{
+                    textAlign: 'left',
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
+                    fontSize: 11.5,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderColor = 'var(--border-focus)';
+                    e.currentTarget.style.background = 'var(--bg-hover)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                    e.currentTarget.style.background = 'var(--bg-tertiary)';
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.6 }}>
+                    <span style={{ fontSize: 9, fontWeight: 600 }}>
+                      {new Date(p.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {p.domain || 'General'} · {p.mode}
+                    </span>
+                  </div>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {p.original_text}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Error */}
         {error &&
