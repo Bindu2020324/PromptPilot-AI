@@ -74,12 +74,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 =======
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg.type !== 'PP_API') return;
+  if (msg.type !== 'PP_API') return false;
 
   const now = Date.now();
+  const DEBOUNCE_THRESHOLD = 500; // ms
 
   // debounce rapid requests
-  if (now - lastRequestTime < 500) {
+  if (now - lastRequestTime < DEBOUNCE_THRESHOLD) {
     sendResponse({ ok: false, error: 'Duplicate request ignored.' });
     return true;
   }
@@ -175,9 +176,18 @@ Return ONLY valid JSON:
 // ── Main API dispatcher ───────────────────────────────────────────────
 
 async function callAPI(msg) {
-  const { prompt, domain, mode, provider, apiKey } = msg;
+  const { 
+    prompt, 
+    domain, 
+    mode, 
+    provider, 
+    apiKey,
+    profileRole,
+    profileStack,
+    profileRules 
+  } = msg;
 
-  const sys = buildSystemPrompt(domain, mode);
+  const sys = buildSystemPrompt(domain, mode, profileRole, profileStack, profileRules);
   const userMsg = `Enhance this prompt: "${prompt}"`;
 
   let raw = '';
