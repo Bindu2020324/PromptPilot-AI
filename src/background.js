@@ -49,29 +49,6 @@ async function ensureContent(tabId) {
 
 let isProcessing = false;
 let lastRequestTime = 0;
-<<<<<<< HEAD
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg.type !== 'PP_API') return false;
-
-  const now = Date.now();
-  // debounce rapid requests
-  if (now - lastRequestTime < 500) {
-    sendResponse({ ok: false, error: 'Duplicate request ignored.' });
-    return false;
-  }
-
-  lastRequestTime = now;
-  if (isProcessing) {
-    sendResponse({ ok: false, error: 'Another request is already in progress. Please wait.' });
-    return false;
-  }
-
-  isProcessing = true;
-  callAPI(msg)
-    .then((r) => sendResponse({ ok: true, data: r }))
-    .catch((e) => sendResponse({ ok: false, error: e.message }))
-    .finally(() => { isProcessing = false; });
-=======
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type !== 'PP_API') return false;
@@ -104,7 +81,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       isProcessing = false;
     });
 
->>>>>>> upstream/main
   return true;
 });
 
