@@ -1,8 +1,7 @@
-
+import { exportHistoryAsJSON, generateHistoryMarkdown } from './exportUtils';
 import BackupControls from './BackupControls';
 
-
-<BackupControls />
+<BackupControls />;
 
 import TemplateManager from "./components/TemplateManager";
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -1417,13 +1416,12 @@ export default function App() {
 
   const handleExportJSON = () => {
     try {
-      const dataStr = JSON.stringify(prompts, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
+      const { content, filename } = exportHistoryAsJSON(prompts);
+      const blob = new Blob([content], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      a.download = `promptpilot-history-${timestamp}.json`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1435,46 +1433,12 @@ export default function App() {
 
   const handleExportMarkdown = () => {
     try {
-      let md = `# PromptPilot AI - Exported Prompt History\n`;
-      md += `Exported on: ${new Date().toLocaleString()}\n`;
-      md += `Total Prompts: ${prompts.length}\n\n`;
-      md += `---\n\n`;
-
-      prompts.forEach((prompt, idx) => {
-        md += `## ${idx + 1}. ${prompt.original_text.slice(0, 50)}${prompt.original_text.length > 50 ? '...' : ''}\n\n`;
-        md += `- **Original Prompt:** ${prompt.original_text}\n`;
-        md += `- **Domain:** ${prompt.domain || 'General'}\n`;
-        md += `- **Mode:** ${prompt.mode}\n`;
-        md += `- **Status:** ${prompt.favorite ? '⭐ Favorite' : 'Standard'}\n`;
-        md += `- **Created:** ${new Date(prompt.created_at).toLocaleString()}\n`;
-        md += `- **Last Updated:** ${new Date(prompt.updated_at).toLocaleString()}\n\n`;
-
-        md += `### Version History\n\n`;
-
-        prompt.versions.forEach((ver) => {
-          md += `#### Version ${ver.version_number}${ver.version_number === prompt.versions[0].version_number ? ' (Latest)' : ''}\n`;
-          md += `- **Created At:** ${new Date(ver.created_at).toLocaleString()}\n`;
-          md += `- **AI Provider:** ${ver.provider || 'Gemini'} (${ver.model || 'gemini-pro'})\n`;
-          md += `- **Scores:** Clarity: ${ver.clarity_score} | Specificity: ${ver.specificity_score} | Quality: ${ver.quality_score}\n`;
-          if (ver.change_note) {
-            md += `- **Change Note:** *${ver.change_note}*\n`;
-          }
-          if (ver.transformation_insight) {
-            md += `- **Insight:** ${ver.transformation_insight}\n`;
-          }
-          md += `\n**Enhanced Prompt:**\n\n`;
-          md += `\`\`\`\n${ver.enhanced_prompt}\n\`\`\`\n\n`;
-        });
-
-        md += `---\n\n`;
-      });
-
-      const blob = new Blob([md], { type: 'text/markdown' });
+      const { content, filename } = generateHistoryMarkdown(prompts);
+      const blob = new Blob([content], { type: 'text/markdown' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      a.download = `promptpilot-history-${timestamp}.md`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
