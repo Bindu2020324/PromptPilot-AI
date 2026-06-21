@@ -3,16 +3,17 @@
   "version": "1.0.0",
   "type": "module",
   "private": true,
- "scripts": {
-  "dev": "vite build --watch",
-  "build": "vite build",
-  "preview": "vite preview",
-  "lint": "eslint src/ --max-warnings 0",
-  "format": "prettier --write \"src/**/*.{js,jsx,css}\"",
-  "format:check": "prettier --check \"src/**/*.{js,jsx,css}\"",
-  "test": "jest",
-  "test:coverage": "jest --coverage"
-},
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src/ --max-warnings 0",
+    "format": "prettier --write \"src/**/*.{js,jsx,css}\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,css}\"",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "prepare": "husky"
+  },
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
@@ -20,6 +21,8 @@
   "devDependencies": {
     "@babel/preset-env": "^7.29.5",
     "@babel/preset-react": "^7.28.5",
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
     "@crxjs/vite-plugin": "^2.0.0-beta.23",
     "@eslint/js": "^9.39.4",
     "@testing-library/jest-dom": "^6.9.1",
@@ -31,6 +34,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.6.0",
+    "husky": "^9.1.7",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
     "prettier": "^3.8.3",
