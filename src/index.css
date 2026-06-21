@@ -91,9 +91,13 @@
 }
 html,
 body {
-  width: 420px;
-  height: 600px;
-  overflow: hidden;
+  width: 100%;
+  min-width: 320px;
+  max-width: 100%;
+  min-height: 100vh;
+  max-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--bg-primary);
   font-family:
     'Segoe UI',
@@ -104,12 +108,36 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 #root {
-  width: 420px;
-  height: 600px;
-  overflow: hidden;
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  max-width: 420px;
+  max-height: 600px;
+  margin: 0 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
+}
+
+@media (max-height: 599px) {
+  html,
+  body {
+    height: 100vh;
+  }
+}
+
+@media (min-width: 420px) {
+  #root {
+    max-width: 420px;
+  }
+}
+
+@media (min-height: 600px) {
+  #root {
+    max-height: 600px;
+  }
 }
 ::-webkit-scrollbar {
   width: 3px;
