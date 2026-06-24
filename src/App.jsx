@@ -1,10 +1,10 @@
-import { exportHistoryAsJSON, generateHistoryMarkdown } from './exportUtils';
-import BackupControls from './BackupControls';
+// ✅ Remove the floating <BackupControls />
+// ✅ Remove the BackupControls import entirely (it's handled inside SettingsScreen already)
+// ✅ Group all imports together at the top
 
-<BackupControls />;
-
-import TemplateManager from "./components/TemplateManager";
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { exportHistoryAsJSON, generateHistoryMarkdown } from './exportUtils';
+import TemplateManager from "./components/TemplateManager";
 import { versioningService } from './versioningService';
 import {
   PromptsList,
