@@ -30,6 +30,80 @@ Thank you for your interest in contributing! This document explains how to set u
 - **Testing**: Run unit tests to verify the code behaves as expected: `npm run test`.
 - **Coverage**: Maintain test coverage for new business logic.
 
+## Commit Message Conventions
+
+This project enforces [Conventional Commits](https://www.conventionalcommits.org/) via `commitlint`. Each commit message must follow this format:
+
+```
+<type>[optional scope]: <subject>
+
+[optional body]
+
+[optional footer]
+```
+
+### Commit Types
+
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation only changes
+- `style`: Changes that don't affect code meaning (formatting, missing semicolons, etc.)
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `perf`: Code change that improves performance
+- `test`: Adding or updating tests
+- `chore`: Changes to build process, dependencies, or tooling
+- `ci`: Changes to CI/CD configuration
+- `revert`: Reverts a previous commit
+
+### Commit Rules
+
+- Subject line must be lowercase
+- Subject line must not exceed 100 characters
+- Subject line must not end with a period
+- Subject line should be imperative (use "add" not "added" or "adds")
+- Separate subject from body with a blank line
+- Wrap body at 100 characters
+
+### Good Commit Examples
+
+```
+feat: add prompt export functionality to sidebar menu
+```
+
+```
+fix(popup): make responsive across different screen sizes
+
+- Updated CSS breakpoints for mobile devices
+- Adjusted font sizes and padding for smaller screens
+- Tested on iPhone and Android devices
+```
+
+```
+docs: update installation instructions for Node.js 18+
+```
+
+```
+refactor: simplify prompt caching logic
+
+Previously used conditional statements for checking cache validity.
+Now uses optional chaining for cleaner, more readable code.
+```
+
+```
+test: add unit tests for prompt history export utilities
+```
+
+### Bad Commit Examples
+
+```
+✗ Updated stuff
+✗ Fix bug
+✗ Added new features
+✗ feat: Added prompt export functionality to sidebar menu.
+✗ feat: Add prompt export functionality to sidebar menu that allows users to export their prompt history in JSON format and also supports CSV export
+✗ FEAT: ADD PROMPT EXPORT
+```
+
 ## Development Workflow
 
 ### Run in watch mode
