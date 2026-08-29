@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 // Prompt Versioning Service
 // Manages storage and retrieval of prompt versions with history tracking
+// Enhanced with A/B Testing, Diff Support, and Analytics Trackers
 // ═══════════════════════════════════════════════════════════════════════
 
 const STORAGE_KEY_PROMPTS = 'pp_prompts';
@@ -8,6 +9,7 @@ const STORAGE_KEY_METADATA = 'pp_metadata';
 const STORAGE_KEY_SEARCHES = 'pp_recent_searches';
 const EXPORT_VERSION = 1;
 const MAX_PROMPTS = 100;
+const MAX_VERSIONS_LIMIT = 20; // Requirement: Maximum version limit with auto-cleanup
 
 function asNumber(value, fallback = 0) {
   const n = Number(value);
@@ -26,6 +28,7 @@ function sanitizeVersion(version = {}, index = 0) {
     clarity_score: asNumber(version.clarity_score),
     specificity_score: asNumber(version.specificity_score),
     quality_score: asNumber(version.quality_score),
+    performance_score: asNumber(version.performance_score || 0), // Added performance score tracking
     domain_detected: String(version.domain_detected || ''),
     missing_requirements: Array.isArray(version.missing_requirements)
       ? version.missing_requirements
@@ -50,7 +53,7 @@ function sanitizePromptForImport(prompt = {}, index = 0) {
     ? prompt.versions.map((v, i) => sanitizeVersion(v, i))
     : [];
 
-  // Keep latest first so app behavior remains consistent.
+
   versions.sort((a, b) => b.created_at - a.created_at);
   versions.forEach((v, i) => {
     v.version_number = versions.length - i;
@@ -65,6 +68,7 @@ function sanitizePromptForImport(prompt = {}, index = 0) {
     created_at: asNumber(prompt.created_at, now),
     updated_at: asNumber(prompt.updated_at, now),
     tags: Array.isArray(prompt.tags) ? prompt.tags : [],
+    ab_test: prompt.ab_test || { active: false, versionA: null, versionB: null, metrics: { aSelections: 0, bSelections: 0 } }
   };
 }
 
@@ -78,10 +82,6 @@ function toLegacyHistory(prompts = []) {
         clarity_score: latest.clarity_score,
         specificity_score: latest.specificity_score,
         quality_score: latest.quality_score,
-        domain_detected: latest.domain_detected,
-        missing_requirements: latest.missing_requirements || [],
-        transformation_insight: latest.transformation_insight || '',
-        ambiguities_resolved: latest.ambiguities_resolved || [],
         provider: latest.provider || 'gemini',
         model: latest.model || 'gemini-pro',
         original: prompt.original_text,
@@ -97,9 +97,6 @@ function toLegacyHistory(prompts = []) {
 }
 
 export const versioningService = {
-  /**
-   * Get all prompts with their version history
-   */
   async getAllPrompts() {
     return new Promise((res) => {
       chrome.storage.local.get([STORAGE_KEY_PROMPTS], (data) => {
@@ -109,17 +106,11 @@ export const versioningService = {
     });
   },
 
-  /**
-   * Get a specific prompt by ID
-   */
   async getPromptById(id) {
     const prompts = await this.getAllPrompts();
     return prompts.find((p) => p.id === id) || null;
   },
 
-  /**
-   * Create a new prompt entry with first version
-   */
   async createPrompt(originalText, enhancedData, metadata = {}) {
     const prompts = await this.getAllPrompts();
     const id = `pp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -131,6 +122,7 @@ export const versioningService = {
       clarity_score: enhancedData.clarity_score,
       specificity_score: enhancedData.specificity_score,
       quality_score: enhancedData.quality_score,
+      performance_score: enhancedData.performance_score || 0,
       domain_detected: enhancedData.domain_detected,
       missing_requirements: enhancedData.missing_requirements,
       transformation_insight: enhancedData.transformation_insight,
@@ -151,9 +143,10 @@ export const versioningService = {
       updated_at: now,
       tags: metadata.tags || [],
       favorite: false,
+      ab_test: { active: false, versionA: null, versionB: null, metrics: { aSelections: 0, bSelections: 0 } }
     };
 
-    const updated = [prompt, ...prompts].slice(0, MAX_PROMPTS); // Keep max prompts
+    const updated = [prompt, ...prompts].slice(0, MAX_PROMPTS);
     await new Promise((res) => {
       chrome.storage.local.set({ [STORAGE_KEY_PROMPTS]: updated }, res);
     });
@@ -161,9 +154,6 @@ export const versioningService = {
     return prompt;
   },
 
-  /**
-   * Add a new version to an existing prompt
-   */
   async addVersion(promptId, enhancedData, metadata = {}) {
     const prompts = await this.getAllPrompts();
     const prompt = prompts.find((p) => p.id === promptId);
@@ -178,6 +168,7 @@ export const versioningService = {
       clarity_score: enhancedData.clarity_score,
       specificity_score: enhancedData.specificity_score,
       quality_score: enhancedData.quality_score,
+      performance_score: enhancedData.performance_score || 0,
       domain_detected: enhancedData.domain_detected,
       missing_requirements: enhancedData.missing_requirements,
       transformation_insight: enhancedData.transformation_insight,
@@ -188,7 +179,13 @@ export const versioningService = {
       change_note: metadata.change_note || `Version ${nextVersion}`,
     };
 
-    prompt.versions.unshift(version); // Latest version at front
+    prompt.versions.unshift(version);
+
+    // Requirement: Maximum version limit configuration array with auto-cleanup
+    if (prompt.versions.length > MAX_VERSIONS_LIMIT) {
+      prompt.versions = prompt.versions.slice(0, MAX_VERSIONS_LIMIT);
+    }
+
     prompt.updated_at = now;
 
     const updated = prompts.map((p) => (p.id === promptId ? prompt : p));
@@ -199,9 +196,72 @@ export const versioningService = {
     return prompt;
   },
 
-  /**
-   * Update the updated_at timestamp of a prompt (moves it to top of recent)
-   */
+  // ═══════════════════════════════════════════════════════════════════════
+  // NEW A/B TESTING & PERFORMANCE ANALYTICS TRACKING METHODS
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  async configureABTest(promptId, versionANumber, versionBNumber) {
+    const prompts = await this.getAllPrompts();
+    const prompt = prompts.find((p) => p.id === promptId);
+    if (!prompt) throw new Error(`Prompt ${promptId} not found`);
+
+    prompt.ab_test = {
+      active: true,
+      versionA: versionANumber,
+      versionB: versionBNumber,
+      metrics: { aSelections: 0, bSelections: 0 }
+    };
+
+    const updated = prompts.map((p) => (p.id === promptId ? prompt : p));
+    await new Promise((res) => {
+      chrome.storage.local.set({ [STORAGE_KEY_PROMPTS]: updated }, res);
+    });
+    return prompt;
+  },
+
+  async recordABChoice(promptId, chosenVersionNumber) {
+    const prompts = await this.getAllPrompts();
+    const prompt = prompts.find((p) => p.id === promptId);
+    if (!prompt) throw new Error(`Prompt ${promptId} not found`);
+
+    if (prompt.ab_test && prompt.ab_test.active) {
+      if (chosenVersionNumber === prompt.ab_test.versionA) {
+        prompt.ab_test.metrics.aSelections += 1;
+      } else if (chosenVersionNumber === prompt.ab_test.versionB) {
+        prompt.ab_test.metrics.bSelections += 1;
+      }
+    }
+
+    // Update individual version performance metric scores
+    const version = prompt.versions.find(v => v.version_number === chosenVersionNumber);
+    if (version) {
+      version.performance_score = (version.performance_score || 0) + 1;
+    }
+
+    const updated = prompts.map((p) => (p.id === promptId ? prompt : p));
+    await new Promise((res) => {
+      chrome.storage.local.set({ [STORAGE_KEY_PROMPTS]: updated }, res);
+    });
+    return prompt;
+  },
+
+  async updateVersionScore(promptId, versionNumber, field, score) {
+    const prompts = await this.getAllPrompts();
+    const prompt = prompts.find((p) => p.id === promptId);
+    if (!prompt) throw new Error(`Prompt ${promptId} not found`);
+
+    const version = prompt.versions.find(v => v.version_number === versionNumber);
+    if (version) {
+      version[field] = asNumber(score);
+    }
+
+    const updated = prompts.map((p) => (p.id === promptId ? prompt : p));
+    await new Promise((res) => {
+      chrome.storage.local.set({ [STORAGE_KEY_PROMPTS]: updated }, res);
+    });
+    return prompt;
+  },
+
   async touchPrompt(promptId) {
     const prompts = await this.getAllPrompts();
     const now = Date.now();
@@ -215,9 +275,6 @@ export const versioningService = {
     return updated;
   },
 
-  /**
-   * Get a specific version of a prompt
-   */
   async getVersion(promptId, versionNumber) {
     const prompt = await this.getPromptById(promptId);
     if (!prompt) return null;
@@ -226,9 +283,6 @@ export const versioningService = {
     );
   },
 
-  /**
-   * Restore a prompt to a previous version (creates new version from old)
-   */
   async restoreVersion(promptId, sourceVersionNumber) {
     const prompt = await this.getPromptById(promptId);
     if (!prompt) throw new Error(`Prompt ${promptId} not found`);
@@ -240,7 +294,6 @@ export const versioningService = {
       throw new Error(`Version ${sourceVersionNumber} not found`);
     }
 
-    // Create a new version based on the old one
     const nextVersion = (prompt.versions[0]?.version_number || 0) + 1;
     const now = Date.now();
 
@@ -252,6 +305,9 @@ export const versioningService = {
     };
 
     prompt.versions.unshift(newVersion);
+    if (prompt.versions.length > MAX_VERSIONS_LIMIT) {
+      prompt.versions = prompt.versions.slice(0, MAX_VERSIONS_LIMIT);
+    }
     prompt.updated_at = now;
 
     const prompts = await this.getAllPrompts();
@@ -264,9 +320,6 @@ export const versioningService = {
     return prompt;
   },
 
-  /**
-   * Compare two versions and return diff
-   */
   compareVersions(version1, version2) {
     return {
       version1Number: version1.version_number,
@@ -275,16 +328,13 @@ export const versioningService = {
       version2: version2,
       changes: {
         clarityDiff: version2.clarity_score - version1.clarity_score,
-        specificityDiff:
-          version2.specificity_score - version1.specificity_score,
+        specificityDiff: version2.specificity_score - version1.specificity_score,
         qualityDiff: version2.quality_score - version1.quality_score,
+        performanceDiff: (version2.performance_score || 0) - (version1.performance_score || 0),
       },
     };
   },
 
-  /**
-   * Delete a prompt and all its versions
-   */
   async deletePrompt(promptId) {
     const prompts = await this.getAllPrompts();
     const updated = prompts.filter((p) => p.id !== promptId);
@@ -293,9 +343,7 @@ export const versioningService = {
     });
   },
 
-  /**
-   * Clear all prompts and history
-   */
+
   async clearAll() {
     await new Promise((res) => {
       chrome.storage.local.set({ 
@@ -306,9 +354,7 @@ export const versioningService = {
     });
   },
 
-  /**
-   * Recent Search History
-   */
+
   async getRecentSearches() {
     return new Promise((res) => {
       chrome.storage.local.get([STORAGE_KEY_SEARCHES], (data) => {
@@ -364,6 +410,7 @@ export const versioningService = {
             clarity_score: item.clarity_score || 0,
             specificity_score: item.specificity_score || 0,
             quality_score: item.quality_score || 0,
+            performance_score: item.performance_score || 0,
             domain_detected: item.domain_detected || '',
             missing_requirements: item.missing_requirements || [],
             transformation_insight: item.transformation_insight || '',
@@ -462,9 +509,6 @@ export const versioningService = {
     };
   },
 
-  /**
-   * Migrate legacy flat history to versioned format
-   */
   async migrateFromLegacy() {
     return new Promise((res) => {
       chrome.storage.local.get(
@@ -484,7 +528,6 @@ export const versioningService = {
           }
 
           const prompts = [];
-          // Group by original text and create versioned entries
           const grouped = {};
           legacyHistory.forEach((item) => {
             const key = item.original || 'unknown';
@@ -494,7 +537,6 @@ export const versioningService = {
 
           let id_counter = 1;
           Object.values(grouped).forEach((items) => {
-            // Sort by timestamp
             items.sort((a, b) => a.ts - b.ts);
 
             const id = `pp_legacy_${id_counter++}`;
@@ -504,6 +546,7 @@ export const versioningService = {
               clarity_score: item.clarity_score,
               specificity_score: item.specificity_score,
               quality_score: item.quality_score,
+              performance_score: 0,
               domain_detected: item.domain_detected,
               missing_requirements: item.missing_requirements || [],
               transformation_insight: item.transformation_insight || '',
@@ -519,11 +562,12 @@ export const versioningService = {
               original_text: items[0].original,
               domain: items[0].domain || '',
               mode: items[0].mode || 'technical',
-              versions: versions.reverse(), // Most recent first
+              versions: versions.reverse(),
               created_at: items[0].ts,
               updated_at: items[items.length - 1].ts,
               tags: [],
               favorite: items.some((item) => item.favorite) || false,
+              ab_test: { active: false, versionA: null, versionB: null, metrics: { aSelections: 0, bSelections: 0 } }
             });
           });
 
@@ -531,7 +575,7 @@ export const versioningService = {
             chrome.storage.local.set({ [STORAGE_KEY_PROMPTS]: prompts }, res2);
           });
 
-          // Clear legacy storage
+        
           await new Promise((res2) => {
             chrome.storage.local.remove(['pp_history'], res2);
           });
